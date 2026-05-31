@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+require_linux
+ensure_linux_build_path "$KALYX_WORKDIR"
+ensure_dirs
+
+[[ "$KALYX_ROOTFS" != "/" ]] || die "Recusando preparar / como rootfs."
+
+info "Preparando rootfs inicial em $KALYX_ROOTFS"
+
+mkdir -p \
+  "$KALYX_ROOTFS"/{boot,dev,etc,home,mnt,opt,proc,root,run,srv,sys,tmp,usr,var} \
+  "$KALYX_ROOTFS"/usr/{bin,lib,sbin,share} \
+  "$KALYX_ROOTFS"/var/{cache,lib,local,log,opt,spool} \
+  "$KALYX_ROOTFS"/etc/{profile.d,skel,sudoers.d,systemd/system} \
+  "$KALYX_ROOTFS"/usr/sbin \
+  "$KALYX_ROOTFS"/var/lib/kalyx/pkg
+
+chmod 0750 "$KALYX_ROOTFS/root"
+chmod 1777 "$KALYX_ROOTFS/tmp"
+
+rm -rf "$KALYX_ROOTFS/bin" "$KALYX_ROOTFS/sbin" "$KALYX_ROOTFS/lib" "$KALYX_ROOTFS/lib64"
+ln -sfn usr/bin "$KALYX_ROOTFS/bin"
+ln -sfn usr/sbin "$KALYX_ROOTFS/sbin"
+ln -sfn usr/lib "$KALYX_ROOTFS/lib"
+ln -sfn usr/lib "$KALYX_ROOTFS/lib64"
+
+cat > "$KALYX_ROOTFS/etc/os-release" <<OS_RELEASE
+NAME="$KALYX_NAME"
+ID=$KALYX_ID
+PRETTY_NAME="$KALYX_NAME $KALYX_VERSION"
+VERSION_ID="$KALYX_VERSION"
+HOME_URL="https://example.invalid/kalyx"
+BUG_REPORT_URL="https://example.invalid/kalyx/issues"
+OS_RELEASE
+
+cat > "$KALYX_ROOTFS/etc/hostname" <<HOSTNAME
+kalyx
+HOSTNAME
+
+cat > "$KALYX_ROOTFS/etc/locale.conf" <<LOCALE
+LANG=$KALYX_LOCALE
+LOCALE
+
+cat > "$KALYX_ROOTFS/etc/vconsole.conf" <<VCONSOLE
+KEYMAP=$KALYX_KEYMAP
+VCONSOLE
+
+cat > "$KALYX_ROOTFS/etc/timezone" <<TIMEZONE
+$KALYX_TIMEZONE
+TIMEZONE
+
+: > "$KALYX_ROOTFS/etc/machine-id"
+
+cat > "$KALYX_ROOTFS/etc/profile.d/kalyx.sh" <<PROFILE
+export DISTRO_NAME="$KALYX_NAME"
+PROFILE
+
+cat > "$KALYX_ROOTFS/var/lib/kalyx/release" <<RELEASE
+name=$KALYX_NAME
+id=$KALYX_ID
+version=$KALYX_VERSION
+arch=$KALYX_ARCH
+lfs_release=$KALYX_LFS_RELEASE
+RELEASE
+
+install -m 0755 "$KALYX_REPO/installer/kalyx-install" "$KALYX_ROOTFS/usr/sbin/kalyx-install"
+
+info "Rootfs inicial preparado."
+info "Proximo passo: instalar pacotes base em $KALYX_ROOTFS."

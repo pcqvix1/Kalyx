@@ -1,0 +1,18 @@
+# Local build state
+/work/
+/build/
+/sources/
+/packages/
+/rootfs/
+/iso/
+/out/
+
+# Logs
+*.log
+
+# Editor/OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+

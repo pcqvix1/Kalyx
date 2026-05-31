@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+usage() {
+  cat <<USAGE
+Uso: bash scripts/pkg-install --root <rootfs> <pacote.tar.zst>
+
+Instala um pacote Kalyx simples dentro de um rootfs.
+Por seguranca, este script recusa instalar em /.
+USAGE
+}
+
+root=""
+package=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --root) root="${2:-}"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) package="$1"; shift ;;
+  esac
+done
+
+[[ -n "$root" ]] || { usage; exit 2; }
+[[ -n "$package" ]] || { usage; exit 2; }
+[[ "$root" != "/" ]] || die "Recusando instalar pacote diretamente em /."
+[[ -f "$package" ]] || die "Pacote nao encontrado: $package"
+
+require_linux
+require_cmd tar zstd
+mkdir -p "$root"
+
+info "Instalando $package em $root"
+tar --zstd -xf "$package" -C "$root"
+info "Instalacao concluida."
+

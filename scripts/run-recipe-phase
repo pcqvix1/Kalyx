@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+phase="${1:-}"
+[[ -n "$phase" ]] || die "Uso: bash scripts/run-recipe-phase <toolchain|base|desktop>"
+
+recipe_dir="$KALYX_REPO/recipes/$phase"
+[[ -d "$recipe_dir" ]] || die "Diretorio de receitas nao encontrado: $recipe_dir"
+
+mapfile -t recipes < <(find "$recipe_dir" -maxdepth 1 -type f -name '*.recipe' | sort)
+
+if [[ "${#recipes[@]}" -eq 0 ]]; then
+  warn "Nenhuma receita em $recipe_dir."
+  warn "A fase '$phase' esta pronta para receber receitas, mas ainda nao compila pacotes reais."
+  exit 0
+fi
+
+for recipe in "${recipes[@]}"; do
+  run_logged "pkg-$(basename "$recipe" .recipe)" bash "$KALYX_REPO/scripts/pkg-build" "$recipe"
+done
+
+info "Fase '$phase' concluida."
+

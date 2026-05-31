@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+require_linux
+
+info "Validando host para build da Kalyx"
+info "Repo: $KALYX_REPO"
+info "Workdir: $KALYX_WORKDIR"
+
+if is_wsl; then
+  warn "Voce esta no WSL. Para a Kalyx, prefira a VM Ubuntu no VirtualBox com disco no D:."
+fi
+
+ensure_linux_build_path "$KALYX_WORKDIR"
+ensure_dirs
+
+required=(
+  bash awk bison bzip2 cat chmod chown cmp cp diff file find gawk gcc g++ grep
+  gzip ld m4 make md5sum mkdir mount mv patch perl python3 readlink rm sed sh
+  sha256sum sort tar texi2any touch uname xz
+)
+
+optional=(
+  wget curl git rsync zstd dialog whiptail sgdisk parted mkfs.ext4 mkfs.vfat
+  xorriso grub-mkrescue mksquashfs
+)
+
+require_cmd "${required[@]}"
+
+missing_optional=0
+for cmd in "${optional[@]}"; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    warn "Opcional ausente: $cmd"
+    missing_optional=1
+  fi
+done
+
+case "$(uname -m)" in
+  x86_64) info "Arquitetura OK: x86_64" ;;
+  *) die "Arquitetura nao suportada na v1: $(uname -m)" ;;
+esac
+
+fs_type="$(df -PT "$KALYX_WORKDIR" | awk 'NR==2 {print $2}')"
+info "Filesystem do workdir: $fs_type"
+case "$fs_type" in
+  ext2|ext3|ext4|btrfs|xfs) ;;
+  *)
+    warn "Filesystem incomum para LFS: $fs_type"
+    warn "Se for pasta compartilhada/NTFS, mova o build para um disco Linux dentro da VM."
+    ;;
+esac
+
+free_gb="$(free_gb_for_path "$KALYX_WORKDIR")"
+info "Espaco livre aproximado no workdir: ${free_gb} GB"
+if [[ "$free_gb" -lt 80 ]]; then
+  warn "Menos de 80 GB livres. LFS + BLFS + XFCE pode ficar apertado."
+fi
+
+cat <<REPORT
+
+Resumo:
+  Kalyx:        $KALYX_VERSION
+  LFS alvo:     $KALYX_LFS_RELEASE
+  Locale:       $KALYX_LOCALE
+  Teclado:      $KALYX_KEYMAP
+  Timezone:     $KALYX_TIMEZONE
+  Workdir:      $KALYX_WORKDIR
+
+REPORT
+
+if [[ "$missing_optional" -ne 0 ]]; then
+  warn "Alguns opcionais faltam. O build base pode funcionar, mas ISO/instalador precisam deles."
+fi
+
+info "Host-check concluido."
+

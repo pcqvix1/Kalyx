@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+require_linux
+ensure_linux_build_path "$KALYX_WORKDIR"
+ensure_dirs
+
+[[ -d "$KALYX_ROOTFS" ]] || die "Rootfs nao encontrado: $KALYX_ROOTFS"
+[[ -e "$KALYX_ROOTFS/usr/lib/systemd/systemd" || -e "$KALYX_ROOTFS/sbin/init" ]] || \
+  die "Rootfs ainda nao parece bootavel: faltou systemd/init."
+
+require_cmd grub-mkrescue xorriso mksquashfs
+
+kernel="$(find "$KALYX_ROOTFS/boot" -maxdepth 1 -type f -name 'vmlinuz-*' | sort | tail -n 1 || true)"
+initramfs="$(find "$KALYX_ROOTFS/boot" -maxdepth 1 -type f \( -name 'initramfs-*' -o -name 'initrd-*' \) | sort | tail -n 1 || true)"
+
+[[ -n "$kernel" ]] || die "Kernel nao encontrado em $KALYX_ROOTFS/boot."
+[[ -n "$initramfs" ]] || die "Initramfs nao encontrado em $KALYX_ROOTFS/boot."
+
+iso_tree="$KALYX_ISO/tree"
+iso_out="$KALYX_ISO/${KALYX_ID}-${KALYX_VERSION}-x86_64.iso"
+
+rm -rf "$iso_tree"
+mkdir -p "$iso_tree/boot/grub" "$iso_tree/live"
+
+info "Criando squashfs do rootfs"
+mksquashfs "$KALYX_ROOTFS" "$iso_tree/live/rootfs.squashfs" \
+  -noappend \
+  -e dev proc sys run tmp mnt media lost+found
+
+cp "$kernel" "$iso_tree/boot/vmlinuz"
+cp "$initramfs" "$iso_tree/boot/initramfs.img"
+
+cat > "$iso_tree/boot/grub/grub.cfg" <<GRUB
+set timeout=5
+set default=0
+
+menuentry "Kalyx Live XFCE" {
+    linux /boot/vmlinuz root=live:LABEL=$KALYX_ISO_LABEL ro quiet
+    initrd /boot/initramfs.img
+}
+
+menuentry "Kalyx Live XFCE (debug)" {
+    linux /boot/vmlinuz root=live:LABEL=$KALYX_ISO_LABEL ro systemd.log_level=debug
+    initrd /boot/initramfs.img
+}
+GRUB
+
+info "Gerando ISO UEFI/BIOS via grub-mkrescue"
+grub-mkrescue -V "$KALYX_ISO_LABEL" -o "$iso_out" "$iso_tree"
+info "ISO pronta: $iso_out"

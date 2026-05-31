@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+usage() {
+  cat <<USAGE
+Uso: bash scripts/pkg-build <receita>
+
+A receita e um script shell com variaveis:
+  pkg_name, pkg_version, source_url, source_sha256
+
+E funcoes:
+  build()
+  package()
+
+Variaveis disponiveis para a receita:
+  srcdir, builddir, pkgdir, DESTDIR
+USAGE
+}
+
+[[ "${1:-}" == "-h" || "${1:-}" == "--help" ]] && { usage; exit 0; }
+recipe="${1:-}"
+[[ -n "$recipe" ]] || { usage; exit 2; }
+[[ -f "$recipe" ]] || die "Receita nao encontrada: $recipe"
+
+require_linux
+require_cmd tar sha256sum zstd
+ensure_linux_build_path "$KALYX_WORKDIR"
+ensure_dirs
+
+pkg_name=""
+pkg_version=""
+source_url=""
+source_sha256=""
+
+# shellcheck source=/dev/null
+source "$recipe"
+
+[[ -n "$pkg_name" ]] || die "Receita sem pkg_name"
+[[ -n "$pkg_version" ]] || die "Receita sem pkg_version"
+[[ -n "$source_url" ]] || die "Receita sem source_url"
+[[ -n "$source_sha256" ]] || die "Receita sem source_sha256"
+declare -F build >/dev/null || die "Receita sem funcao build()"
+declare -F package >/dev/null || die "Receita sem funcao package()"
+
+archive="$KALYX_SOURCES/${source_url##*/}"
+if [[ ! -f "$archive" ]]; then
+  info "Baixando fonte de $pkg_name"
+  download_to "$source_url" "$archive"
+fi
+
+info "Verificando sha256 de $archive"
+printf '%s  %s\n' "$source_sha256" "$archive" | sha256sum -c -
+
+phase_dir="$KALYX_BUILD/$pkg_name-$pkg_version"
+srcdir="$phase_dir/src"
+builddir="$phase_dir/build"
+pkgdir="$phase_dir/pkg"
+DESTDIR="$pkgdir"
+
+rm -rf "$phase_dir"
+mkdir -p "$srcdir" "$builddir" "$pkgdir"
+
+info "Extraindo fonte"
+case "$archive" in
+  *.tar.gz|*.tgz|*.tar.xz|*.tar.bz2|*.tar.zst) tar -xf "$archive" -C "$srcdir" ;;
+  *) die "Formato de arquivo ainda nao suportado: $archive" ;;
+esac
+
+export srcdir builddir pkgdir DESTDIR KALYX_ROOTFS KALYX_TOOLS
+
+info "Build: $pkg_name-$pkg_version"
+build
+
+info "Package: $pkg_name-$pkg_version"
+package
+
+metadata_dir="$pkgdir/var/lib/kalyx/pkg/$pkg_name"
+mkdir -p "$metadata_dir"
+{
+  printf 'name=%s\n' "$pkg_name"
+  printf 'version=%s\n' "$pkg_version"
+  printf 'source=%s\n' "$source_url"
+  printf 'built_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+} > "$metadata_dir/PKGINFO"
+
+(
+  cd "$pkgdir"
+  find . -type f -o -type l | sed 's#^\./##' | sort > "$metadata_dir/FILES"
+)
+
+package_file="$KALYX_PACKAGES/$pkg_name-$pkg_version-$KALYX_ARCH.tar.zst"
+info "Gerando pacote: $package_file"
+(
+  cd "$pkgdir"
+  tar --zstd -cf "$package_file" .
+)
+
+info "Pacote pronto: $package_file"
+

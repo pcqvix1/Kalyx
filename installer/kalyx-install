@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+DRY_RUN=0
+if [[ "${1:-}" == "--dry-run" ]]; then
+  DRY_RUN=1
+fi
+
+log() {
+  printf '[kalyx-install] %s\n' "$*"
+}
+
+die() {
+  printf '[kalyx-install][ERRO] %s\n' "$*" >&2
+  exit 1
+}
+
+run() {
+  log "$*"
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    "$@"
+  fi
+}
+
+need_root() {
+  [[ "$(id -u)" -eq 0 ]] || die "Rode como root dentro da ISO live."
+}
+
+need_cmds() {
+  local missing=0
+  for cmd in "$@"; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+      printf 'Comando ausente: %s\n' "$cmd" >&2
+      missing=1
+    fi
+  done
+  [[ "$missing" -eq 0 ]] || die "Instale/inclua os comandos ausentes na ISO."
+}
+
+ui() {
+  if command -v whiptail >/dev/null 2>&1; then
+    whiptail "$@"
+  elif command -v dialog >/dev/null 2>&1; then
+    dialog "$@"
+  else
+    return 127
+  fi
+}
+
+confirm_danger() {
+  local disk="$1"
+  if command -v whiptail >/dev/null 2>&1 || command -v dialog >/dev/null 2>&1; then
+    ui --yesno "Isto vai APAGAR TODO o disco $disk. Continuar?" 10 70 || exit 1
+  else
+    printf 'Isto vai APAGAR TODO o disco %s.\n' "$disk"
+  fi
+
+  printf 'Digite KALYX para confirmar: '
+  read -r answer
+  [[ "$answer" == "KALYX" ]] || die "Confirmacao incorreta. Abortando."
+}
+
+choose_disk() {
+  mapfile -t disks < <(
+    lsblk -dn -P -o NAME,SIZE,MODEL,TYPE |
+      while IFS= read -r line; do
+        eval "$line"
+        [[ "${TYPE:-}" == "disk" ]] || continue
+        printf '/dev/%s %s %s\n' "$NAME" "$SIZE" "${MODEL:-disk}"
+      done
+  )
+  [[ "${#disks[@]}" -gt 0 ]] || die "Nenhum disco encontrado."
+
+  if command -v whiptail >/dev/null 2>&1 || command -v dialog >/dev/null 2>&1; then
+    local args=()
+    local entry path rest
+    for entry in "${disks[@]}"; do
+      path="${entry%% *}"
+      rest="${entry#* }"
+      args+=("$path" "$rest")
+    done
+    ui --menu "Escolha o disco de destino" 20 78 10 "${args[@]}" 3>&1 1>&2 2>&3
+  else
+    printf 'Discos disponiveis:\n'
+    printf '  %s\n' "${disks[@]}"
+    printf 'Disco de destino, exemplo /dev/sda: '
+    read -r disk
+    printf '%s\n' "$disk"
+  fi
+}
+
+partition_disk() {
+  local disk="$1"
+  run wipefs -a "$disk"
+  run sgdisk --zap-all "$disk"
+  run sgdisk -n 1:1MiB:+512MiB -t 1:EF00 -c 1:KALYX_EFI "$disk"
+  run sgdisk -n 2:0:0 -t 2:8300 -c 2:KALYX_ROOT "$disk"
+  run partprobe "$disk"
+  sleep 2
+}
+
+part_path() {
+  local disk="$1"
+  local num="$2"
+  if [[ "$disk" == *nvme* || "$disk" == *mmcblk* ]]; then
+    printf '%sp%s\n' "$disk" "$num"
+  else
+    printf '%s%s\n' "$disk" "$num"
+  fi
+}
+
+install_system() {
+  local disk="$1"
+  local esp root target source_root
+  esp="$(part_path "$disk" 1)"
+  root="$(part_path "$disk" 2)"
+  target="${KALYX_INSTALL_MOUNT:-/mnt/kalyx-target}"
+  source_root="${KALYX_LIVE_ROOT:-/}"
+
+  run mkfs.vfat -F 32 -n KALYX_EFI "$esp"
+  run mkfs.ext4 -F -L KALYX_ROOT "$root"
+  run mkdir -p "$target"
+  run mount "$root" "$target"
+  run mkdir -p "$target/boot/efi"
+  run mount "$esp" "$target/boot/efi"
+
+  run rsync -aHAX --numeric-ids \
+    --exclude=/dev --exclude=/proc --exclude=/sys --exclude=/run \
+    --exclude=/tmp --exclude=/mnt --exclude=/media --exclude=/lost+found \
+    "$source_root/" "$target/"
+
+  run mkdir -p "$target"/{dev,proc,sys,run,tmp,mnt,media}
+  run chmod 1777 "$target/tmp"
+
+  local root_uuid esp_uuid
+  root_uuid="$(blkid -s UUID -o value "$root")"
+  esp_uuid="$(blkid -s UUID -o value "$esp")"
+
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    cat > "$target/etc/fstab" <<FSTAB
+UUID=$root_uuid / ext4 defaults 0 1
+UUID=$esp_uuid /boot/efi vfat umask=0077 0 2
+/swapfile none swap defaults 0 0
+FSTAB
+  else
+    log "Criaria $target/etc/fstab"
+  fi
+
+  run dd if=/dev/zero of="$target/swapfile" bs=1M count=2048 status=progress
+  run chmod 600 "$target/swapfile"
+  run mkswap "$target/swapfile"
+
+  run mount --bind /dev "$target/dev"
+  run mount --bind /proc "$target/proc"
+  run mount --bind /sys "$target/sys"
+  run mount --bind /run "$target/run"
+
+  run chroot "$target" grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Kalyx
+  run chroot "$target" grub-mkconfig -o /boot/grub/grub.cfg
+
+  log "Sistema copiado. Crie o usuario admin no primeiro boot ou antes de finalizar a imagem live."
+}
+
+main() {
+  need_root
+  need_cmds lsblk wipefs sgdisk partprobe mkfs.vfat mkfs.ext4 mount rsync blkid dd mkswap chroot grub-install grub-mkconfig
+
+  [[ -d /sys/firmware/efi ]] || die "A v1 do instalador suporta apenas boot UEFI."
+
+  local disk
+  disk="$(choose_disk)"
+  [[ -b "$disk" ]] || die "Disco invalido: $disk"
+
+  confirm_danger "$disk"
+  partition_disk "$disk"
+  install_system "$disk"
+
+  log "Instalacao finalizada. Reinicie e remova a ISO."
+}
+
+main "$@"

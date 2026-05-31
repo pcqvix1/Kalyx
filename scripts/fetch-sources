@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+require_linux
+require_cmd md5sum
+ensure_linux_build_path "$KALYX_WORKDIR"
+ensure_dirs
+
+if ! command -v wget >/dev/null 2>&1 && ! command -v curl >/dev/null 2>&1; then
+  die "Instale wget ou curl para baixar fontes."
+fi
+
+info "Baixando listas oficiais do LFS em $KALYX_SOURCES"
+download_to "$KALYX_LFS_DOWNLOAD_BASE/wget-list" "$KALYX_SOURCES/wget-list"
+download_to "$KALYX_LFS_DOWNLOAD_BASE/md5sums" "$KALYX_SOURCES/md5sums"
+
+info "Baixando pacotes e patches do LFS"
+if command -v wget >/dev/null 2>&1; then
+  wget --input-file="$KALYX_SOURCES/wget-list" --continue --directory-prefix="$KALYX_SOURCES"
+else
+  while IFS= read -r url; do
+    [[ -z "$url" || "$url" == \#* ]] && continue
+    download_to "$url" "$KALYX_SOURCES/${url##*/}"
+  done < "$KALYX_SOURCES/wget-list"
+fi
+
+info "Verificando md5sums oficiais"
+(
+  cd "$KALYX_SOURCES"
+  md5sum -c md5sums
+)
+
+info "Fontes LFS prontas em $KALYX_SOURCES"
+

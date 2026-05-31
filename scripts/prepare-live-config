@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+require_linux
+ensure_linux_build_path "$KALYX_WORKDIR"
+ensure_dirs
+
+[[ -d "$KALYX_ROOTFS/etc" ]] || die "Rootfs nao preparado. Rode scripts/prepare-rootfs primeiro."
+
+info "Configurando defaults da ISO live em $KALYX_ROOTFS"
+
+mkdir -p \
+  "$KALYX_ROOTFS/etc/lightdm/lightdm.conf.d" \
+  "$KALYX_ROOTFS/etc/systemd/system/getty@tty1.service.d" \
+  "$KALYX_ROOTFS/etc/sudoers.d" \
+  "$KALYX_ROOTFS/etc/skel/Desktop" \
+  "$KALYX_ROOTFS/usr/share/applications" \
+  "$KALYX_ROOTFS/usr/local/bin"
+
+cat > "$KALYX_ROOTFS/etc/lightdm/lightdm.conf.d/50-kalyx-live.conf" <<LIGHTDM
+[Seat:*]
+autologin-user=$KALYX_LIVE_USER
+autologin-user-timeout=0
+user-session=xfce
+LIGHTDM
+
+cat > "$KALYX_ROOTFS/etc/systemd/system/getty@tty1.service.d/autologin.conf" <<GETTY
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin $KALYX_LIVE_USER --noclear %I \$TERM
+GETTY
+
+sudoers_file="$KALYX_ROOTFS/etc/sudoers.d/90-kalyx-live"
+rm -f "$sudoers_file"
+cat > "$sudoers_file" <<SUDOERS
+$KALYX_LIVE_USER ALL=(ALL) NOPASSWD: /usr/sbin/kalyx-install
+SUDOERS
+chmod 0440 "$sudoers_file"
+
+cat > "$KALYX_ROOTFS/usr/local/bin/kalyx-open-installer" <<'LAUNCHER'
+#!/usr/bin/env sh
+set -eu
+
+if command -v xfce4-terminal >/dev/null 2>&1; then
+  exec xfce4-terminal --title="Instalar Kalyx" --command="sudo /usr/sbin/kalyx-install"
+fi
+
+if command -v xterm >/dev/null 2>&1; then
+  exec xterm -T "Instalar Kalyx" -e sudo /usr/sbin/kalyx-install
+fi
+
+exec sudo /usr/sbin/kalyx-install
+LAUNCHER
+chmod 0755 "$KALYX_ROOTFS/usr/local/bin/kalyx-open-installer"
+
+cat > "$KALYX_ROOTFS/usr/share/applications/kalyx-install.desktop" <<DESKTOP
+[Desktop Entry]
+Type=Application
+Name=Instalar Kalyx
+Comment=Instalar a Kalyx no disco
+Exec=/usr/local/bin/kalyx-open-installer
+Terminal=false
+Categories=System;
+DESKTOP
+
+cp "$KALYX_ROOTFS/usr/share/applications/kalyx-install.desktop" "$KALYX_ROOTFS/etc/skel/Desktop/kalyx-install.desktop"
+chmod 0755 "$KALYX_ROOTFS/etc/skel/Desktop/kalyx-install.desktop"
+
+info "Config live preparada. O usuario '$KALYX_LIVE_USER' deve ser criado durante o build da imagem."

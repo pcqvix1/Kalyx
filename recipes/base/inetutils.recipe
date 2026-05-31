@@ -1,0 +1,29 @@
+pkg_name="inetutils"
+pkg_version="2.7"
+source_archive="inetutils-2.7.tar.xz"
+source_dir="inetutils-2.7"
+
+build_recipe() {
+  sed -i 's/def HAVE_TERMCAP_TGETENT/ 1/' telnet/telnet.c
+
+  ./configure --prefix=/usr        \
+              --bindir=/usr/bin    \
+              --localstatedir=/var \
+              --disable-logger     \
+              --disable-whois      \
+              --disable-rcp        \
+              --disable-rexec      \
+              --disable-rlogin     \
+              --disable-rsh        \
+              --disable-servers
+
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+  mv -v /usr/{,s}bin/ifconfig
+}
+

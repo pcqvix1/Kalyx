@@ -1,0 +1,16 @@
+pkg_name="zstd"
+pkg_version="1.5.7"
+source_archive="zstd-1.5.7.tar.gz"
+source_dir="zstd-1.5.7"
+
+build_recipe() {
+  make prefix=/usr
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make prefix=/usr install
+  rm -v /usr/lib/libzstd.a
+}
+

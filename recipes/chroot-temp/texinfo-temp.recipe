@@ -1,0 +1,11 @@
+pkg_name="texinfo-temp"
+pkg_version="7.2"
+source_archive="texinfo-7.2.tar.xz"
+source_dir="texinfo-7.2"
+
+build_recipe() {
+  ./configure --prefix=/usr
+  make
+  make install
+}
+

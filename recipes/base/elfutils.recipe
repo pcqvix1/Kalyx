@@ -1,0 +1,17 @@
+pkg_name="elfutils"
+pkg_version="0.194"
+source_archive="elfutils-0.194.tar.bz2"
+source_dir="elfutils-0.194"
+
+build_recipe() {
+  ./configure --prefix=/usr        \
+              --disable-debuginfod \
+              --enable-libdebuginfod=dummy
+
+  make -C lib
+  make -C libelf
+  make -C libelf install
+  install -vm644 config/libelf.pc /usr/lib/pkgconfig
+  rm -f /usr/lib/libelf.a
+}
+

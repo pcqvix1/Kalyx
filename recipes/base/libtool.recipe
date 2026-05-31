@@ -1,0 +1,17 @@
+pkg_name="libtool"
+pkg_version="2.5.4"
+source_archive="libtool-2.5.4.tar.xz"
+source_dir="libtool-2.5.4"
+
+build_recipe() {
+  ./configure --prefix=/usr
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+  rm -fv /usr/lib/libltdl.a
+}
+

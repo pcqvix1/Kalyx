@@ -1,0 +1,19 @@
+pkg_name="libffi"
+pkg_version="3.5.2"
+source_archive="libffi-3.5.2.tar.gz"
+source_dir="libffi-3.5.2"
+
+build_recipe() {
+  ./configure --prefix=/usr    \
+              --disable-static \
+              --with-gcc-arch=native
+
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}
+

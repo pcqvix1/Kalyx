@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+require_linux
+require_cmd cpio gzip
+ensure_linux_build_path "$KALYX_WORKDIR"
+ensure_dirs
+
+busybox="${KALYX_BUSYBOX:-$KALYX_ROOTFS/bin/busybox}"
+out="${KALYX_INITRAMFS:-$KALYX_ISO/initramfs-live.img}"
+stage="$KALYX_BUILD/initramfs-live"
+
+[[ -x "$busybox" ]] || die "BusyBox nao encontrado/executavel em $busybox. Adicione BusyBox ao rootfs ou defina KALYX_BUSYBOX."
+
+rm -rf "$stage"
+mkdir -p "$stage"/{bin,sbin,proc,sys,dev,run,newroot}
+
+install -m 0755 "$busybox" "$stage/bin/busybox"
+install -m 0755 "$KALYX_REPO/initramfs/live-init" "$stage/init"
+
+applets="sh mount umount mkdir cat echo sleep switch_root blkid modprobe losetup"
+for applet in $applets; do
+  ln -s busybox "$stage/bin/$applet"
+done
+ln -s ../bin/busybox "$stage/sbin/init"
+
+mkdir -p "$(dirname "$out")"
+(
+  cd "$stage"
+  find . -print0 | cpio --null -o --format=newc | gzip -9 > "$out"
+)
+
+info "Initramfs live criado: $out"
+

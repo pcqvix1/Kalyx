@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+usage() {
+  cat <<USAGE
+Uso: bash scripts/lfs-build-recipe <receita.recipe>
+
+Receitas LFS definem:
+  pkg_name
+  pkg_version
+  source_archive
+  build_recipe()
+
+O script extrai a fonte em KALYX_BUILD, exporta LFS/LFS_TGT e executa build_recipe.
+USAGE
+}
+
+[[ "${1:-}" == "-h" || "${1:-}" == "--help" ]] && { usage; exit 0; }
+recipe="${1:-}"
+[[ -n "$recipe" ]] || { usage; exit 2; }
+[[ -f "$recipe" ]] || die "Receita nao encontrada: $recipe"
+
+require_linux
+require_cmd tar md5sum
+ensure_linux_build_path "$KALYX_WORKDIR"
+ensure_dirs
+
+[[ "$KALYX_ROOTFS" != "/" ]] || die "Recusando usar / como LFS."
+[[ -d "$KALYX_ROOTFS/usr" ]] || die "Rootfs nao preparado. Rode scripts/prepare-rootfs primeiro."
+
+export LFS="$KALYX_ROOTFS"
+export LFS_TGT="$KALYX_LFS_TGT"
+export MAKEFLAGS="${MAKEFLAGS:--j$(nproc)}"
+export PATH="$KALYX_TOOLS/bin:/usr/bin:/bin"
+export CONFIG_SITE="$LFS/usr/share/config.site"
+
+pkg_name=""
+pkg_version=""
+source_archive=""
+source_dir=""
+
+lfs_source_path() {
+  local archive="$1"
+  if [[ -f "$KALYX_SOURCES/$archive" ]]; then
+    printf '%s\n' "$KALYX_SOURCES/$archive"
+    return 0
+  fi
+  if [[ -f "$KALYX_SOURCES/blfs/$archive" ]]; then
+    printf '%s\n' "$KALYX_SOURCES/blfs/$archive"
+    return 0
+  fi
+  return 1
+}
+
+lfs_verify_archive() {
+  local archive="$1"
+  local path sums line
+  path="$(lfs_source_path "$archive")" || die "Fonte ausente: $archive. Rode fetch-sources/fetch-blfs-sources."
+
+  for sums in "$KALYX_SOURCES/md5sums" "$KALYX_SOURCES/blfs/md5sums"; do
+    [[ -f "$sums" ]] || continue
+    line="$(grep -E "[[:space:]]${archive//./\\.}$" "$sums" || true)"
+    if [[ -n "$line" ]]; then
+      printf '%s\n' "$line" | (cd "$(dirname "$path")" && md5sum -c -)
+      return 0
+    fi
+  done
+
+  warn "Sem md5sum local para $archive; assumindo que fetch-sources ja validou."
+}
+
+lfs_extract_into() {
+  local archive="$1"
+  local dest="$2"
+  local path
+  path="$(lfs_source_path "$archive")" || die "Fonte ausente: $archive"
+  tar -xf "$path" -C "$dest"
+}
+
+export -f lfs_source_path lfs_verify_archive lfs_extract_into
+
+# shellcheck source=/dev/null
+source "$recipe"
+
+[[ -n "$pkg_name" ]] || die "Receita sem pkg_name"
+[[ -n "$pkg_version" ]] || die "Receita sem pkg_version"
+[[ -n "$source_archive" ]] || die "Receita sem source_archive"
+declare -F build_recipe >/dev/null || die "Receita sem build_recipe()"
+
+lfs_verify_archive "$source_archive"
+
+phase_dir="$KALYX_BUILD/lfs-$pkg_name-$pkg_version"
+rm -rf "$phase_dir"
+mkdir -p "$phase_dir"
+
+info "Extraindo $source_archive"
+lfs_extract_into "$source_archive" "$phase_dir"
+
+if [[ -z "$source_dir" ]]; then
+  source_dir="$(strip_archive_name "$source_archive")"
+fi
+
+srcdir="$phase_dir/$source_dir"
+[[ -d "$srcdir" ]] || die "Diretorio fonte nao encontrado: $srcdir"
+
+export phase_dir srcdir
+
+info "Construindo LFS: $pkg_name-$pkg_version"
+(
+  cd "$srcdir"
+  build_recipe
+)
+
+mkdir -p "$KALYX_ROOTFS/var/lib/kalyx/lfs-stamps"
+cat > "$KALYX_ROOTFS/var/lib/kalyx/lfs-stamps/$pkg_name" <<STAMP
+name=$pkg_name
+version=$pkg_version
+source=$source_archive
+built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+STAMP
+
+info "Receita LFS concluida: $pkg_name-$pkg_version"
+

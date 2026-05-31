@@ -1,0 +1,18 @@
+pkg_name="grep"
+pkg_version="3.12"
+source_archive="grep-3.12.tar.xz"
+source_dir="grep-3.12"
+
+build_recipe() {
+  sed -i "s/echo/#echo/" src/egrep.sh
+
+  ./configure --prefix=/usr
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}
+

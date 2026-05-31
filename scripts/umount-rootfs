@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+require_linux
+require_cmd umount
+
+[[ "$(id -u)" -eq 0 ]] || die "Rode como root para desmontar pseudo-filesystems."
+
+for path in "$KALYX_ROOTFS/dev/shm" "$KALYX_ROOTFS/run" "$KALYX_ROOTFS/sys" "$KALYX_ROOTFS/proc" "$KALYX_ROOTFS/dev/pts" "$KALYX_ROOTFS/dev"; do
+  if mountpoint -q "$path"; then
+    umount "$path"
+  fi
+done
+
+info "Pseudo-filesystems desmontados de $KALYX_ROOTFS"

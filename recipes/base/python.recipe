@@ -1,0 +1,26 @@
+pkg_name="python"
+pkg_version="3.14.3"
+source_archive="Python-3.14.3.tar.xz"
+source_dir="Python-3.14.3"
+
+build_recipe() {
+  ./configure --prefix=/usr          \
+              --enable-shared        \
+              --with-system-expat    \
+              --enable-optimizations \
+              --without-static-libpython
+
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make test TESTOPTS="--timeout 120"
+  fi
+
+  make install
+  cat > /etc/pip.conf <<'PIP'
+[global]
+root-user-action = ignore
+disable-pip-version-check = true
+PIP
+}
+

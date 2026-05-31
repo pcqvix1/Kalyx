@@ -1,0 +1,14 @@
+pkg_name="python-temp"
+pkg_version="3.14.3"
+source_archive="Python-3.14.3.tar.xz"
+source_dir="Python-3.14.3"
+
+build_recipe() {
+  ./configure --prefix=/usr \
+              --enable-shared \
+              --without-ensurepip \
+              --without-static-libpython
+  make
+  make install
+}
+

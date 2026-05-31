@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+require_linux
+ensure_linux_build_path "$KALYX_WORKDIR"
+ensure_dirs
+
+BLFS_DOWNLOAD_BASE="${KALYX_BLFS_DOWNLOAD_BASE:-https://www.linuxfromscratch.org/blfs/downloads/stable-systemd}"
+BLFS_SOURCES="${KALYX_BLFS_SOURCES:-$KALYX_SOURCES/blfs}"
+mkdir -p "$BLFS_SOURCES"
+
+info "Baixando lista oficial BLFS em $BLFS_SOURCES"
+download_to "$BLFS_DOWNLOAD_BASE/wget-list" "$BLFS_SOURCES/wget-list"
+
+info "Baixando fontes BLFS listadas oficialmente"
+if command -v wget >/dev/null 2>&1; then
+  wget --input-file="$BLFS_SOURCES/wget-list" --continue --directory-prefix="$BLFS_SOURCES"
+else
+  while IFS= read -r url; do
+    [[ -z "$url" || "$url" == \#* ]] && continue
+    download_to "$url" "$BLFS_SOURCES/${url##*/}"
+  done < "$BLFS_SOURCES/wget-list"
+fi
+
+info "Fontes BLFS baixadas em $BLFS_SOURCES"
+

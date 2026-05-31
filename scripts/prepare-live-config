@@ -13,6 +13,8 @@ ensure_dirs
 
 info "Configurando defaults da ISO live em $KALYX_ROOTFS"
 
+bash "$KALYX_REPO/scripts/prepare-desktop-config"
+
 mkdir -p \
   "$KALYX_ROOTFS/etc/lightdm/lightdm.conf.d" \
   "$KALYX_ROOTFS/etc/systemd/system/getty@tty1.service.d" \

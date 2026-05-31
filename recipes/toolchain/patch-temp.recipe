@@ -1,0 +1,14 @@
+pkg_name="patch-temp"
+pkg_version="2.8"
+source_archive="patch-2.8.tar.xz"
+source_dir="patch-2.8"
+
+build_recipe() {
+  ./configure --prefix=/usr \
+              --host="$LFS_TGT" \
+              --build="$(build-aux/config.guess)"
+
+  make
+  make DESTDIR="$LFS" install
+}
+

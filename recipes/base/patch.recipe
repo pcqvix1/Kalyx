@@ -1,0 +1,16 @@
+pkg_name="patch"
+pkg_version="2.8"
+source_archive="patch-2.8.tar.xz"
+source_dir="patch-2.8"
+
+build_recipe() {
+  ./configure --prefix=/usr
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}
+

@@ -14,7 +14,7 @@ ensure_dirs
 info "Preparando rootfs inicial em $KALYX_ROOTFS"
 
 mkdir -p \
-  "$KALYX_ROOTFS"/{boot,dev,etc,home,mnt,opt,proc,root,run,srv,sys,tmp,usr,var} \
+  "$KALYX_ROOTFS"/{boot,dev,etc,home,mnt,opt,proc,root,run,srv,sys,tmp,tools,usr,var} \
   "$KALYX_ROOTFS"/usr/{bin,lib,sbin,share} \
   "$KALYX_ROOTFS"/var/{cache,lib,local,log,opt,spool} \
   "$KALYX_ROOTFS"/etc/{profile.d,skel,sudoers.d,systemd/system} \
@@ -24,11 +24,16 @@ mkdir -p \
 chmod 0750 "$KALYX_ROOTFS/root"
 chmod 1777 "$KALYX_ROOTFS/tmp"
 
-rm -rf "$KALYX_ROOTFS/bin" "$KALYX_ROOTFS/sbin" "$KALYX_ROOTFS/lib" "$KALYX_ROOTFS/lib64"
+rm -rf "$KALYX_ROOTFS/bin" "$KALYX_ROOTFS/sbin" "$KALYX_ROOTFS/lib"
 ln -sfn usr/bin "$KALYX_ROOTFS/bin"
 ln -sfn usr/sbin "$KALYX_ROOTFS/sbin"
 ln -sfn usr/lib "$KALYX_ROOTFS/lib"
-ln -sfn usr/lib "$KALYX_ROOTFS/lib64"
+if [[ "$(uname -m)" == "x86_64" ]]; then
+  if [[ -L "$KALYX_ROOTFS/lib64" ]]; then
+    rm -f "$KALYX_ROOTFS/lib64"
+  fi
+  mkdir -p "$KALYX_ROOTFS/lib64"
+fi
 
 cat > "$KALYX_ROOTFS/etc/os-release" <<OS_RELEASE
 NAME="$KALYX_NAME"
@@ -51,6 +56,16 @@ cat > "$KALYX_ROOTFS/etc/vconsole.conf" <<VCONSOLE
 KEYMAP=$KALYX_KEYMAP
 VCONSOLE
 
+mkdir -p "$KALYX_ROOTFS/etc/X11/xorg.conf.d"
+cat > "$KALYX_ROOTFS/etc/X11/xorg.conf.d/00-keyboard.conf" <<XKB
+Section "InputClass"
+        Identifier "system-keyboard"
+        MatchIsKeyboard "on"
+        Option "XkbLayout" "$KALYX_XKB_LAYOUT"
+        Option "XkbVariant" "$KALYX_XKB_VARIANT"
+EndSection
+XKB
+
 cat > "$KALYX_ROOTFS/etc/timezone" <<TIMEZONE
 $KALYX_TIMEZONE
 TIMEZONE
@@ -66,10 +81,19 @@ name=$KALYX_NAME
 id=$KALYX_ID
 version=$KALYX_VERSION
 arch=$KALYX_ARCH
+target=$KALYX_LFS_TGT
+keymap=$KALYX_KEYMAP
+xkb_layout=$KALYX_XKB_LAYOUT
+xkb_variant=$KALYX_XKB_VARIANT
 lfs_release=$KALYX_LFS_RELEASE
 RELEASE
 
 install -m 0755 "$KALYX_REPO/installer/kalyx-install" "$KALYX_ROOTFS/usr/sbin/kalyx-install"
+
+if [[ -x "$KALYX_REPO/desktop/kalyx-time-config" ]]; then
+  mkdir -p "$KALYX_ROOTFS/usr/local/bin"
+  install -m 0755 "$KALYX_REPO/desktop/kalyx-time-config" "$KALYX_ROOTFS/usr/local/bin/kalyx-time-config"
+fi
 
 info "Rootfs inicial preparado."
 info "Proximo passo: instalar pacotes base em $KALYX_ROOTFS."

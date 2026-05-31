@@ -1,0 +1,16 @@
+pkg_name="autoconf"
+pkg_version="2.72"
+source_archive="autoconf-2.72.tar.xz"
+source_dir="autoconf-2.72"
+
+build_recipe() {
+  ./configure --prefix=/usr
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}
+

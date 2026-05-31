@@ -1,0 +1,20 @@
+pkg_name="attr"
+pkg_version="2.5.2"
+source_archive="attr-2.5.2.tar.xz"
+source_dir="attr-2.5.2"
+
+build_recipe() {
+  ./configure --prefix=/usr     \
+              --disable-static  \
+              --sysconfdir=/etc \
+              --docdir=/usr/share/doc/attr-2.5.2
+
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}
+

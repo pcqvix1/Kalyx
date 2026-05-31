@@ -1,0 +1,12 @@
+pkg_name="bison-temp"
+pkg_version="3.8.2"
+source_archive="bison-3.8.2.tar.xz"
+source_dir="bison-3.8.2"
+
+build_recipe() {
+  ./configure --prefix=/usr \
+              --docdir=/usr/share/doc/bison-3.8.2
+  make
+  make install
+}
+

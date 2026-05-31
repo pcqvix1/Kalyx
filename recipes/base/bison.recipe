@@ -1,0 +1,16 @@
+pkg_name="bison"
+pkg_version="3.8.2"
+source_archive="bison-3.8.2.tar.xz"
+source_dir="bison-3.8.2"
+
+build_recipe() {
+  ./configure --prefix=/usr --docdir=/usr/share/doc/bison-3.8.2
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}
+

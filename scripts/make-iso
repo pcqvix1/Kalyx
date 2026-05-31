@@ -16,7 +16,14 @@ ensure_dirs
 require_cmd grub-mkrescue xorriso mksquashfs
 
 kernel="$(find "$KALYX_ROOTFS/boot" -maxdepth 1 -type f -name 'vmlinuz-*' | sort | tail -n 1 || true)"
-initramfs="$(find "$KALYX_ROOTFS/boot" -maxdepth 1 -type f \( -name 'initramfs-*' -o -name 'initrd-*' \) | sort | tail -n 1 || true)"
+initramfs="${KALYX_INITRAMFS:-}"
+if [[ -z "$initramfs" ]]; then
+  initramfs="$(find "$KALYX_ROOTFS/boot" -maxdepth 1 -type f \( -name 'initramfs-*' -o -name 'initrd-*' \) | sort | tail -n 1 || true)"
+fi
+if [[ -z "$initramfs" && -x "$KALYX_ROOTFS/bin/busybox" ]]; then
+  bash "$KALYX_REPO/scripts/build-live-initramfs"
+  initramfs="$KALYX_ISO/initramfs-live.img"
+fi
 
 [[ -n "$kernel" ]] || die "Kernel nao encontrado em $KALYX_ROOTFS/boot."
 [[ -n "$initramfs" ]] || die "Initramfs nao encontrado em $KALYX_ROOTFS/boot."
@@ -40,12 +47,12 @@ set timeout=5
 set default=0
 
 menuentry "Kalyx Live XFCE" {
-    linux /boot/vmlinuz root=live:LABEL=$KALYX_ISO_LABEL ro quiet
+    linux /boot/vmlinuz live.label=$KALYX_ISO_LABEL ro quiet
     initrd /boot/initramfs.img
 }
 
 menuentry "Kalyx Live XFCE (debug)" {
-    linux /boot/vmlinuz root=live:LABEL=$KALYX_ISO_LABEL ro systemd.log_level=debug
+    linux /boot/vmlinuz live.label=$KALYX_ISO_LABEL ro systemd.log_level=debug
     initrd /boot/initramfs.img
 }
 GRUB

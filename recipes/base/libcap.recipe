@@ -1,0 +1,17 @@
+pkg_name="libcap"
+pkg_version="2.77"
+source_archive="libcap-2.77.tar.xz"
+source_dir="libcap-2.77"
+
+build_recipe() {
+  sed -i '/install -m.*STA/d' libcap/Makefile
+
+  make prefix=/usr lib=lib
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make test
+  fi
+
+  make prefix=/usr lib=lib install
+}
+

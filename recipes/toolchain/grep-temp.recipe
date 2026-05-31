@@ -1,0 +1,14 @@
+pkg_name="grep-temp"
+pkg_version="3.12"
+source_archive="grep-3.12.tar.xz"
+source_dir="grep-3.12"
+
+build_recipe() {
+  ./configure --prefix=/usr \
+              --host="$LFS_TGT" \
+              --build="$(./build-aux/config.guess)"
+
+  make
+  make DESTDIR="$LFS" install
+}
+

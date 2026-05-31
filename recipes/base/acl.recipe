@@ -1,0 +1,19 @@
+pkg_name="acl"
+pkg_version="2.3.2"
+source_archive="acl-2.3.2.tar.xz"
+source_dir="acl-2.3.2"
+
+build_recipe() {
+  ./configure --prefix=/usr    \
+              --disable-static \
+              --docdir=/usr/share/doc/acl-2.3.2
+
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}
+

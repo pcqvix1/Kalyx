@@ -1,0 +1,17 @@
+pkg_name="kmod"
+pkg_version="34.2"
+source_archive="kmod-34.2.tar.xz"
+source_dir="kmod-34.2"
+
+build_recipe() {
+  mkdir -p build
+  cd build
+
+  meson setup --prefix=/usr ..    \
+              --buildtype=release \
+              -D manpages=false
+
+  ninja
+  ninja install
+}
+

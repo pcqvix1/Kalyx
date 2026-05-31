@@ -1,0 +1,14 @@
+pkg_name="sed-temp"
+pkg_version="4.9"
+source_archive="sed-4.9.tar.xz"
+source_dir="sed-4.9"
+
+build_recipe() {
+  ./configure --prefix=/usr \
+              --host="$LFS_TGT" \
+              --build="$(./build-aux/config.guess)"
+
+  make
+  make DESTDIR="$LFS" install
+}
+

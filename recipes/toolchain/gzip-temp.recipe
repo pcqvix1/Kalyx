@@ -1,0 +1,12 @@
+pkg_name="gzip-temp"
+pkg_version="1.14"
+source_archive="gzip-1.14.tar.xz"
+source_dir="gzip-1.14"
+
+build_recipe() {
+  ./configure --prefix=/usr --host="$LFS_TGT"
+
+  make
+  make DESTDIR="$LFS" install
+}
+

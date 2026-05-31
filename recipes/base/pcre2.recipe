@@ -1,0 +1,26 @@
+pkg_name="pcre2"
+pkg_version="10.47"
+source_archive="pcre2-10.47.tar.bz2"
+source_dir="pcre2-10.47"
+
+build_recipe() {
+  ./configure --prefix=/usr                       \
+              --docdir=/usr/share/doc/pcre2-10.47 \
+              --enable-unicode                    \
+              --enable-jit                        \
+              --enable-pcre2-16                   \
+              --enable-pcre2-32                   \
+              --enable-pcre2grep-libz             \
+              --enable-pcre2grep-libbz2           \
+              --enable-pcre2test-libreadline      \
+              --disable-static
+
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}
+

@@ -1,0 +1,84 @@
+pkg_name="glibc-final"
+pkg_version="2.43"
+source_archive="glibc-2.43.tar.xz"
+source_dir="glibc-2.43"
+extra_archives=("glibc-fhs-1.patch" "tzdata2025c.tar.gz")
+
+build_recipe() {
+  patch -Np1 -i /sources/glibc-fhs-1.patch
+
+  mkdir -v build
+  cd build
+
+  echo "rootsbindir=/usr/sbin" > configparms
+
+  ../configure --prefix=/usr                   \
+               --disable-werror                \
+               --disable-nscd                  \
+               libc_cv_slibdir=/usr/lib        \
+               --enable-stack-protector=strong \
+               --enable-kernel=5.4
+
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-1}" != "0" ]]; then
+    make check
+  fi
+
+  touch /etc/ld.so.conf
+  sed '/test-installation/s@$(PERL)@echo not running@' -i ../Makefile
+
+  make install
+  sed '/RTLDLIST=/s@/usr@@g' -i /usr/bin/ldd
+
+  localedef -i C -f UTF-8 C.UTF-8
+  localedef -i en_US -f UTF-8 en_US.UTF-8
+  localedef -i pt_BR -f UTF-8 pt_BR.UTF-8
+
+  cd ..
+  tar -xf /sources/tzdata2025c.tar.gz
+
+  ZONEINFO=/usr/share/zoneinfo
+  mkdir -pv "$ZONEINFO"/{posix,right}
+
+  for tz in etcetera southamerica northamerica europe africa antarctica asia australasia backward; do
+    zic -L /dev/null   -d "$ZONEINFO"       "$tz"
+    zic -L /dev/null   -d "$ZONEINFO/posix" "$tz"
+    zic -L leapseconds -d "$ZONEINFO/right" "$tz"
+  done
+
+  cp -v zone.tab zone1970.tab iso3166.tab "$ZONEINFO"
+  zic -d "$ZONEINFO" -p America/New_York
+  unset ZONEINFO tz
+
+  ln -sfv /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
+
+  cat > /etc/nsswitch.conf <<'NSS'
+# Begin /etc/nsswitch.conf
+
+passwd: files systemd
+group: files systemd
+shadow: files systemd
+
+hosts: mymachines resolve [!UNAVAIL=return] files myhostname dns
+networks: files
+
+protocols: files
+services: files
+ethers: files
+rpc: files
+
+# End /etc/nsswitch.conf
+NSS
+
+  cat > /etc/ld.so.conf <<'LDSO'
+# Begin /etc/ld.so.conf
+/usr/local/lib
+/opt/lib
+
+include /etc/ld.so.conf.d/*.conf
+LDSO
+
+  mkdir -pv /etc/ld.so.conf.d
+}
+

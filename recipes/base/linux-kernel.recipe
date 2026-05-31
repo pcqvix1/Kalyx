@@ -1,0 +1,82 @@
+pkg_name="linux-kernel"
+pkg_version="6.18.10"
+source_archive="linux-6.18.10.tar.xz"
+source_dir="linux-6.18.10"
+
+build_recipe() {
+  make mrproper
+  make defconfig
+
+  if [[ -x scripts/config ]]; then
+    scripts/config --disable WERROR
+    scripts/config --enable PSI
+    scripts/config --disable PSI_DEFAULT_DISABLED
+    scripts/config --enable CGROUPS
+    scripts/config --enable MEMCG
+    scripts/config --enable CGROUP_SCHED
+    scripts/config --disable RT_GROUP_SCHED
+    scripts/config --disable IKHEADERS
+    scripts/config --enable RELOCATABLE
+    scripts/config --enable RANDOMIZE_BASE
+    scripts/config --enable STACKPROTECTOR
+    scripts/config --enable STACKPROTECTOR_STRONG
+    scripts/config --enable NET
+    scripts/config --enable INET
+    scripts/config --enable IPV6
+    scripts/config --enable DEVTMPFS
+    scripts/config --enable DEVTMPFS_MOUNT
+    scripts/config --disable UEVENT_HELPER
+    scripts/config --enable DMIID
+    scripts/config --enable SYSFB_SIMPLEFB
+    scripts/config --enable DRM
+    scripts/config --enable DRM_SIMPLEDRM
+    scripts/config --enable DRM_FBDEV_EMULATION
+    scripts/config --enable FRAMEBUFFER_CONSOLE
+    scripts/config --enable TMPFS
+    scripts/config --enable TMPFS_POSIX_ACL
+    scripts/config --enable INOTIFY_USER
+    scripts/config --enable PCI
+    scripts/config --enable PCI_MSI
+    scripts/config --enable X86_X2APIC
+    scripts/config --enable IOMMU_SUPPORT
+    scripts/config --enable IRQ_REMAP
+    scripts/config --enable BLK_DEV_SD
+    scripts/config --enable SCSI
+    scripts/config --enable ATA
+    scripts/config --enable ATA_PIIX
+    scripts/config --enable VIRTIO
+    scripts/config --enable VIRTIO_PCI
+    scripts/config --enable VIRTIO_BLK
+    scripts/config --enable VIRTIO_NET
+    scripts/config --enable E1000
+    scripts/config --enable E1000E
+    scripts/config --enable EXT4_FS
+    scripts/config --enable ISO9660_FS
+    scripts/config --enable SQUASHFS
+    scripts/config --enable OVERLAY_FS
+    scripts/config --enable EFI
+    scripts/config --enable EFI_STUB
+    scripts/config --enable EFIVAR_FS
+    make olddefconfig
+  fi
+
+  make
+  make modules_install
+
+  mkdir -p /boot
+  cp -iv arch/x86/boot/bzImage /boot/vmlinuz-6.18.10-kalyx
+  cp -iv System.map /boot/System.map-6.18.10
+  cp -iv .config /boot/config-6.18.10
+  cp -r Documentation -T /usr/share/doc/linux-6.18.10
+
+  install -v -m755 -d /etc/modprobe.d
+  cat > /etc/modprobe.d/usb.conf <<'USB'
+# Begin /etc/modprobe.d/usb.conf
+
+install ohci_hcd /sbin/modprobe ehci_hcd ; /sbin/modprobe -i ohci_hcd ; true
+install uhci_hcd /sbin/modprobe ehci_hcd ; /sbin/modprobe -i uhci_hcd ; true
+
+# End /etc/modprobe.d/usb.conf
+USB
+}
+

@@ -1,0 +1,21 @@
+pkg_name="gawk"
+pkg_version="5.3.2"
+source_archive="gawk-5.3.2.tar.xz"
+source_dir="gawk-5.3.2"
+
+build_recipe() {
+  sed -i 's/extras//' Makefile.in
+  ./configure --prefix=/usr
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    chown -R tester .
+    su tester -c "PATH=$PATH make check"
+  fi
+
+  rm -f /usr/bin/gawk-5.3.2
+  make install
+  ln -sv gawk.1 /usr/share/man/man1/awk.1
+  install -vDm644 doc/{awkforai.txt,*.{eps,pdf,jpg}} -t /usr/share/doc/gawk-5.3.2
+}
+

@@ -1,0 +1,16 @@
+pkg_name="groff"
+pkg_version="1.23.0"
+source_archive="groff-1.23.0.tar.gz"
+source_dir="groff-1.23.0"
+
+build_recipe() {
+  PAGE=A4 ./configure --prefix=/usr
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}
+

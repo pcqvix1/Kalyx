@@ -15,6 +15,8 @@
 - Kernel Linux configurado para VirtualBox.
 - GRUB UEFI.
 - Boot ate login em console.
+- Status atual: manifestos existem; receitas reais ainda precisam ser
+  implementadas.
 
 ## Marco 2: Base empacotada
 
@@ -30,6 +32,7 @@
 - NetworkManager.
 - Usuario live `kalyx`.
 - Atalho para o instalador.
+- Painel reduzido com data/hora e botao Config.
 
 ## Marco 4: ISO instalavel
 
@@ -37,4 +40,5 @@
 - Instalador TUI testado em disco virtual vazio.
 - Reboot no sistema instalado.
 - Documentacao de reproducao da ISO.
-
+- Usuario, senha, hostname e timezone perguntados no instalador.
+- Sistema instalado sem autologin live e com root bloqueado.

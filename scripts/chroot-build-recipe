@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+recipe="${1:-}"
+[[ -n "$recipe" ]] || die "Uso: bash scripts/chroot-build-recipe <receita.recipe>"
+[[ -f "$recipe" ]] || die "Receita nao encontrada: $recipe"
+
+require_linux
+require_cmd chroot tar
+ensure_linux_build_path "$KALYX_WORKDIR"
+ensure_dirs
+
+[[ "$(id -u)" -eq 0 ]] || die "Rode como root para construir dentro do chroot."
+[[ -x "$KALYX_ROOTFS/bin/bash" || -x "$KALYX_ROOTFS/usr/bin/bash" ]] || die "Rootfs ainda nao tem bash para chroot."
+
+pkg_name=""
+pkg_version=""
+source_archive=""
+source_dir=""
+extra_archives=()
+
+lfs_source_path() {
+  local archive="$1"
+  if [[ -f "$KALYX_SOURCES/$archive" ]]; then
+    printf '%s\n' "$KALYX_SOURCES/$archive"
+    return 0
+  fi
+  if [[ -f "$KALYX_SOURCES/blfs/$archive" ]]; then
+    printf '%s\n' "$KALYX_SOURCES/blfs/$archive"
+    return 0
+  fi
+  return 1
+}
+
+lfs_verify_archive() {
+  local archive="$1"
+  local path sums line
+  path="$(lfs_source_path "$archive")" || die "Fonte ausente: $archive. Rode fetch-sources/fetch-blfs-sources."
+
+  for sums in "$KALYX_SOURCES/md5sums" "$KALYX_SOURCES/blfs/md5sums"; do
+    [[ -f "$sums" ]] || continue
+    line="$(grep -E "[[:space:]]${archive//./\\.}$" "$sums" || true)"
+    if [[ -n "$line" ]]; then
+      printf '%s\n' "$line" | (cd "$(dirname "$path")" && md5sum -c -)
+      return 0
+    fi
+  done
+
+  warn "Sem md5sum local para $archive; assumindo que fetch-sources ja validou."
+}
+
+# shellcheck source=/dev/null
+source "$recipe"
+
+[[ -n "$pkg_name" ]] || die "Receita sem pkg_name"
+[[ -n "$pkg_version" ]] || die "Receita sem pkg_version"
+[[ -n "$source_archive" ]] || die "Receita sem source_archive"
+
+lfs_verify_archive "$source_archive"
+for extra in "${extra_archives[@]:-}"; do
+  lfs_verify_archive "$extra"
+done
+
+if [[ -z "$source_dir" ]]; then
+  source_dir="$(strip_archive_name "$source_archive")"
+fi
+
+bash "$KALYX_REPO/scripts/mount-rootfs"
+
+host_phase="$KALYX_ROOTFS/sources/build/chroot-$pkg_name-$pkg_version"
+chroot_phase="/sources/build/chroot-$pkg_name-$pkg_version"
+rm -rf "$host_phase"
+mkdir -p "$host_phase" "$KALYX_ROOTFS/sources"
+
+install -m 0644 "$(lfs_source_path "$source_archive")" "$KALYX_ROOTFS/sources/${source_archive##*/}"
+for extra in "${extra_archives[@]:-}"; do
+  install -m 0644 "$(lfs_source_path "$extra")" "$KALYX_ROOTFS/sources/${extra##*/}"
+done
+
+tar -xf "$(lfs_source_path "$source_archive")" -C "$host_phase"
+[[ -d "$host_phase/$source_dir" ]] || die "Diretorio fonte nao encontrado: $host_phase/$source_dir"
+
+install -m 0644 "$recipe" "$KALYX_ROOTFS/tmp/kalyx-recipe.sh"
+
+info "Construindo em chroot: $pkg_name-$pkg_version"
+chroot "$KALYX_ROOTFS" /usr/bin/env -i \
+  HOME=/root \
+  TERM="${TERM:-linux}" \
+  PS1='(kalyx chroot) \u:\w\$ ' \
+  PATH=/usr/bin:/usr/sbin \
+  KALYX_RUN_TESTS="${KALYX_RUN_TESTS:-0}" \
+  MAKEFLAGS="${MAKEFLAGS:--j$(nproc)}" \
+  /bin/bash -lc "cd '$chroot_phase/$source_dir' && source /tmp/kalyx-recipe.sh && build_recipe"
+
+mkdir -p "$KALYX_ROOTFS/var/lib/kalyx/lfs-stamps"
+cat > "$KALYX_ROOTFS/var/lib/kalyx/lfs-stamps/$pkg_name" <<STAMP
+name=$pkg_name
+version=$pkg_version
+source=$source_archive
+built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+STAMP
+
+rm -f "$KALYX_ROOTFS/tmp/kalyx-recipe.sh"
+info "Receita chroot concluida: $pkg_name-$pkg_version"

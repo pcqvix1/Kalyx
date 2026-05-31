@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+title="Kalyx Data e Hora"
+
+die() {
+  printf '[kalyx-time-config][ERRO] %s\n' "$*" >&2
+  exit 1
+}
+
+need_cmd() {
+  command -v "$1" >/dev/null 2>&1 || die "Comando ausente: $1"
+}
+
+run_timedatectl() {
+  if [[ "$(id -u)" -eq 0 ]]; then
+    timedatectl "$@"
+  elif command -v pkexec >/dev/null 2>&1; then
+    pkexec timedatectl "$@"
+  else
+    sudo timedatectl "$@"
+  fi
+}
+
+status_text() {
+  timedatectl status 2>/dev/null || true
+}
+
+choose_timezone() {
+  local current zone
+  current="$(timedatectl show -p Timezone --value 2>/dev/null || true)"
+  if command -v zenity >/dev/null 2>&1; then
+    zone="$(timedatectl list-timezones | zenity --list --title="$title" --text="Escolha o timezone" --column="Timezone" --height=520 --width=520 --search-column=1 --print-column=1)"
+  elif command -v whiptail >/dev/null 2>&1; then
+    printf 'Timezone atual: %s\n' "${current:-desconhecido}"
+    printf 'Digite o timezone, exemplo America/Sao_Paulo: '
+    read -r zone
+  else
+    printf 'Timezone atual: %s\n' "${current:-desconhecido}"
+    printf 'Digite o timezone, exemplo America/Sao_Paulo: '
+    read -r zone
+  fi
+
+  [[ -n "${zone:-}" ]] || return 0
+  timedatectl list-timezones | grep -Fxq "$zone" || die "Timezone invalido: $zone"
+  run_timedatectl set-timezone "$zone"
+}
+
+set_manual_time() {
+  local value
+  if command -v zenity >/dev/null 2>&1; then
+    value="$(zenity --entry --title="$title" --text="Digite data e hora no formato YYYY-MM-DD HH:MM:SS")"
+  else
+    printf 'Digite data e hora no formato YYYY-MM-DD HH:MM:SS: '
+    read -r value
+  fi
+
+  [[ -n "${value:-}" ]] || return 0
+  run_timedatectl set-ntp false
+  run_timedatectl set-time "$value"
+}
+
+show_status() {
+  if command -v zenity >/dev/null 2>&1; then
+    status_text | zenity --text-info --title="$title" --height=420 --width=620
+  elif command -v whiptail >/dev/null 2>&1; then
+    whiptail --msgbox "$(status_text)" 22 78
+  else
+    status_text
+  fi
+}
+
+main_zenity() {
+  local choice
+  while true; do
+    choice="$(
+      zenity --list --title="$title" --text="Configurar data e hora" \
+        --column="Acao" --height=330 --width=420 \
+        "Ver status" \
+        "Ativar hora automatica" \
+        "Desativar hora automatica" \
+        "Alterar timezone" \
+        "Definir data/hora manualmente" \
+        "Sair"
+    )" || exit 0
+
+    case "$choice" in
+      "Ver status") show_status ;;
+      "Ativar hora automatica") run_timedatectl set-ntp true ;;
+      "Desativar hora automatica") run_timedatectl set-ntp false ;;
+      "Alterar timezone") choose_timezone ;;
+      "Definir data/hora manualmente") set_manual_time ;;
+      "Sair"|*) exit 0 ;;
+    esac
+  done
+}
+
+main_whiptail() {
+  local choice
+  while true; do
+    choice="$(
+      whiptail --title "$title" --menu "Configurar data e hora" 18 70 8 \
+        status "Ver status" \
+        ntp-on "Ativar hora automatica" \
+        ntp-off "Desativar hora automatica" \
+        timezone "Alterar timezone" \
+        manual "Definir data/hora manualmente" \
+        sair "Sair" \
+        3>&1 1>&2 2>&3
+    )" || exit 0
+
+    case "$choice" in
+      status) show_status ;;
+      ntp-on) run_timedatectl set-ntp true ;;
+      ntp-off) run_timedatectl set-ntp false ;;
+      timezone) choose_timezone ;;
+      manual) set_manual_time ;;
+      sair|*) exit 0 ;;
+    esac
+  done
+}
+
+main_cli() {
+  cat <<MENU
+$title
+
+1) Ver status
+2) Ativar hora automatica
+3) Desativar hora automatica
+4) Alterar timezone
+5) Definir data/hora manualmente
+6) Sair
+MENU
+  while true; do
+    printf '> '
+    read -r choice
+    case "$choice" in
+      1) show_status ;;
+      2) run_timedatectl set-ntp true ;;
+      3) run_timedatectl set-ntp false ;;
+      4) choose_timezone ;;
+      5) set_manual_time ;;
+      6) exit 0 ;;
+      *) printf 'Opcao invalida.\n' ;;
+    esac
+  done
+}
+
+need_cmd timedatectl
+
+if command -v zenity >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
+  main_zenity
+elif command -v whiptail >/dev/null 2>&1; then
+  main_whiptail
+else
+  main_cli
+fi
+

@@ -1,0 +1,17 @@
+pkg_name="findutils"
+pkg_version="4.10.0"
+source_archive="findutils-4.10.0.tar.xz"
+source_dir="findutils-4.10.0"
+
+build_recipe() {
+  ./configure --prefix=/usr --localstatedir=/var/lib/locate
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    chown -R tester .
+    su tester -c "PATH=$PATH make check"
+  fi
+
+  make install
+}
+

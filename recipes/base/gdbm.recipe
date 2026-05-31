@@ -1,0 +1,19 @@
+pkg_name="gdbm"
+pkg_version="1.26"
+source_archive="gdbm-1.26.tar.gz"
+source_dir="gdbm-1.26"
+
+build_recipe() {
+  ./configure --prefix=/usr    \
+              --disable-static \
+              --enable-libgdbm-compat
+
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}
+

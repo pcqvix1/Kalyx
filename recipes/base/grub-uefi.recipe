@@ -1,0 +1,24 @@
+pkg_name="grub-uefi"
+pkg_version="2.14"
+source_archive="grub-2.14.tar.xz"
+source_dir="grub-2.14"
+
+build_recipe() {
+  unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS
+
+  ./configure --prefix=/usr        \
+              --sysconfdir=/etc    \
+              --disable-efiemu     \
+              --with-platform=efi  \
+              --target=x86_64      \
+              --disable-werror
+
+  make
+  make install
+
+  if [[ -f /etc/bash_completion.d/grub ]]; then
+    mkdir -p /usr/share/bash-completion/completions
+    mv -v /etc/bash_completion.d/grub /usr/share/bash-completion/completions
+  fi
+}
+

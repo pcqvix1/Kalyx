@@ -1,0 +1,14 @@
+pkg_name="m4-temp"
+pkg_version="1.4.21"
+source_archive="m4-1.4.21.tar.xz"
+source_dir="m4-1.4.21"
+
+build_recipe() {
+  ./configure --prefix=/usr \
+              --host="$LFS_TGT" \
+              --build="$(build-aux/config.guess)"
+
+  make
+  make DESTDIR="$LFS" install
+}
+

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+phase="${1:-}"
+[[ -n "$phase" ]] || die "Uso: bash scripts/run-chroot-phase <fase>"
+
+recipe_dir="$KALYX_REPO/recipes/$phase"
+manifest="$recipe_dir/manifest"
+
+[[ -d "$recipe_dir" ]] || die "Diretorio de receitas nao encontrado: $recipe_dir"
+[[ -f "$manifest" ]] || die "Manifesto nao encontrado: $manifest"
+
+while IFS= read -r entry; do
+  [[ -z "$entry" || "$entry" == \#* ]] && continue
+  recipe="$recipe_dir/$entry.recipe"
+  if [[ ! -f "$recipe" ]]; then
+    warn "Receita ainda nao implementada: $recipe"
+    warn "Parando fase '$phase' no primeiro pacote ausente."
+    exit 0
+  fi
+  run_logged "$phase-$entry" bash "$KALYX_REPO/scripts/chroot-build-recipe" "$recipe"
+done < "$manifest"
+
+info "Fase '$phase' concluida."
+

@@ -37,6 +37,10 @@ need_cmds() {
   [[ "$missing" -eq 0 ]] || die "Instale/inclua os comandos ausentes na ISO."
 }
 
+has_ui() {
+  command -v whiptail >/dev/null 2>&1 || command -v dialog >/dev/null 2>&1
+}
+
 ui() {
   if command -v whiptail >/dev/null 2>&1; then
     whiptail "$@"
@@ -47,9 +51,76 @@ ui() {
   fi
 }
 
+ask_input() {
+  local prompt="$1"
+  local default="${2:-}"
+  local value
+
+  if has_ui; then
+    value="$(ui --inputbox "$prompt" 10 70 "$default" 3>&1 1>&2 2>&3)" || return 1
+  else
+    printf '%s [%s]: ' "$prompt" "$default"
+    read -r value
+    value="${value:-$default}"
+  fi
+
+  printf '%s\n' "$value"
+}
+
+ask_password() {
+  local prompt="$1"
+  local value
+
+  if has_ui; then
+    value="$(ui --passwordbox "$prompt" 10 70 3>&1 1>&2 2>&3)" || return 1
+  else
+    printf '%s: ' "$prompt"
+    stty -echo
+    read -r value
+    stty echo
+    printf '\n'
+  fi
+
+  printf '%s\n' "$value"
+}
+
+validate_hostname() {
+  [[ "$1" =~ ^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$ ]] || die "Hostname invalido: $1"
+}
+
+validate_username() {
+  [[ "$1" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "Usuario invalido: $1"
+}
+
+validate_timezone() {
+  timedatectl list-timezones | grep -Fxq "$1" || die "Timezone invalido: $1"
+}
+
+collect_install_config() {
+  INSTALL_HOSTNAME="${KALYX_INSTALL_HOSTNAME:-$(ask_input 'Hostname da maquina' 'kalyx')}"
+  INSTALL_FULLNAME="${KALYX_INSTALL_FULLNAME:-$(ask_input 'Nome completo do usuario' 'Kalyx User')}"
+  INSTALL_USERNAME="${KALYX_INSTALL_USERNAME:-$(ask_input 'Nome de usuario' 'kalyx')}"
+  INSTALL_TIMEZONE="${KALYX_INSTALL_TIMEZONE:-$(ask_input 'Timezone' 'America/Sao_Paulo')}"
+
+  if [[ -n "${KALYX_INSTALL_PASSWORD:-}" ]]; then
+    INSTALL_PASSWORD="$KALYX_INSTALL_PASSWORD"
+  else
+    local pass1 pass2
+    pass1="$(ask_password 'Senha do usuario')"
+    pass2="$(ask_password 'Confirme a senha')"
+    [[ "$pass1" == "$pass2" ]] || die "As senhas nao conferem."
+    INSTALL_PASSWORD="$pass1"
+  fi
+
+  [[ -n "$INSTALL_PASSWORD" ]] || die "Senha vazia nao e permitida."
+  validate_hostname "$INSTALL_HOSTNAME"
+  validate_username "$INSTALL_USERNAME"
+  validate_timezone "$INSTALL_TIMEZONE"
+}
+
 confirm_danger() {
   local disk="$1"
-  if command -v whiptail >/dev/null 2>&1 || command -v dialog >/dev/null 2>&1; then
+  if has_ui; then
     ui --yesno "Isto vai APAGAR TODO o disco $disk. Continuar?" 10 70 || exit 1
   else
     printf 'Isto vai APAGAR TODO o disco %s.\n' "$disk"
@@ -71,7 +142,7 @@ choose_disk() {
   )
   [[ "${#disks[@]}" -gt 0 ]] || die "Nenhum disco encontrado."
 
-  if command -v whiptail >/dev/null 2>&1 || command -v dialog >/dev/null 2>&1; then
+  if has_ui; then
     local args=()
     local entry path rest
     for entry in "${disks[@]}"; do
@@ -109,6 +180,65 @@ part_path() {
   fi
 }
 
+write_installed_identity() {
+  local target="$1"
+  local root_uuid="$2"
+  local esp_uuid="$3"
+
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    cat > "$target/etc/fstab" <<FSTAB
+UUID=$root_uuid / ext4 defaults 0 1
+UUID=$esp_uuid /boot/efi vfat umask=0077 0 2
+/swapfile none swap defaults 0 0
+FSTAB
+
+    printf '%s\n' "$INSTALL_HOSTNAME" > "$target/etc/hostname"
+    printf '%s\n' "$INSTALL_TIMEZONE" > "$target/etc/timezone"
+
+    rm -f "$target/etc/lightdm/lightdm.conf.d/50-kalyx-live.conf"
+    rm -f "$target/etc/systemd/system/getty@tty1.service.d/autologin.conf"
+    rm -f "$target/etc/sudoers.d/90-kalyx-live"
+    rm -f "$target/etc/skel/Desktop/kalyx-install.desktop"
+  else
+    log "Criaria fstab, hostname/timezone e removeria autologin live em $target"
+  fi
+}
+
+configure_user() {
+  local target="$1"
+  local groups="wheel"
+
+  run chroot "$target" groupadd -f wheel
+  if chroot "$target" getent group sudo >/dev/null 2>&1; then
+    groups="wheel,sudo"
+  fi
+
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    chroot "$target" useradd -m -c "$INSTALL_FULLNAME" -s /bin/bash -G "$groups" "$INSTALL_USERNAME"
+    printf '%s:%s\n' "$INSTALL_USERNAME" "$INSTALL_PASSWORD" | chroot "$target" chpasswd
+  else
+    log "Criaria usuario $INSTALL_USERNAME com grupos $groups"
+  fi
+
+  run chroot "$target" passwd -l root
+}
+
+configure_time() {
+  local target="$1"
+
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    printf '%s\n' "$INSTALL_TIMEZONE" > "$target/etc/timezone"
+    if [[ -f "$target/usr/share/zoneinfo/$INSTALL_TIMEZONE" ]]; then
+      ln -sfn "../usr/share/zoneinfo/$INSTALL_TIMEZONE" "$target/etc/localtime"
+    fi
+    if [[ -x "$target/usr/bin/systemctl" ]]; then
+      chroot "$target" /usr/bin/systemctl enable systemd-timesyncd.service >/dev/null 2>&1 || true
+    fi
+  else
+    log "Configuraria timezone $INSTALL_TIMEZONE e habilitaria systemd-timesyncd se disponivel"
+  fi
+}
+
 install_system() {
   local disk="$1"
   local esp root target source_root
@@ -135,16 +265,7 @@ install_system() {
   local root_uuid esp_uuid
   root_uuid="$(blkid -s UUID -o value "$root")"
   esp_uuid="$(blkid -s UUID -o value "$esp")"
-
-  if [[ "$DRY_RUN" -eq 0 ]]; then
-    cat > "$target/etc/fstab" <<FSTAB
-UUID=$root_uuid / ext4 defaults 0 1
-UUID=$esp_uuid /boot/efi vfat umask=0077 0 2
-/swapfile none swap defaults 0 0
-FSTAB
-  else
-    log "Criaria $target/etc/fstab"
-  fi
+  write_installed_identity "$target" "$root_uuid" "$esp_uuid"
 
   run dd if=/dev/zero of="$target/swapfile" bs=1M count=2048 status=progress
   run chmod 600 "$target/swapfile"
@@ -155,17 +276,20 @@ FSTAB
   run mount --bind /sys "$target/sys"
   run mount --bind /run "$target/run"
 
+  configure_user "$target"
+  configure_time "$target"
+
   run chroot "$target" grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=Kalyx
   run chroot "$target" grub-mkconfig -o /boot/grub/grub.cfg
-
-  log "Sistema copiado. Crie o usuario admin no primeiro boot ou antes de finalizar a imagem live."
 }
 
 main() {
   need_root
-  need_cmds lsblk wipefs sgdisk partprobe mkfs.vfat mkfs.ext4 mount rsync blkid dd mkswap chroot grub-install grub-mkconfig
+  need_cmds lsblk wipefs sgdisk partprobe mkfs.vfat mkfs.ext4 mount rsync blkid dd mkswap chroot grub-install grub-mkconfig timedatectl
 
   [[ -d /sys/firmware/efi ]] || die "A v1 do instalador suporta apenas boot UEFI."
+
+  collect_install_config
 
   local disk
   disk="$(choose_disk)"

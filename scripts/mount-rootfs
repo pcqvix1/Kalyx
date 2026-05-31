@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+require_linux
+require_cmd mount
+
+[[ -d "$KALYX_ROOTFS" ]] || die "Rootfs nao encontrado: $KALYX_ROOTFS"
+[[ "$(id -u)" -eq 0 ]] || die "Rode como root para montar pseudo-filesystems."
+
+mkdir -p "$KALYX_ROOTFS"/{dev,proc,sys,run}
+mkdir -p "$KALYX_ROOTFS/dev/pts"
+
+mountpoint -q "$KALYX_ROOTFS/dev" || mount --bind /dev "$KALYX_ROOTFS/dev"
+mountpoint -q "$KALYX_ROOTFS/dev/pts" || mount -t devpts devpts -o gid=5,mode=0620 "$KALYX_ROOTFS/dev/pts"
+mountpoint -q "$KALYX_ROOTFS/proc" || mount -t proc proc "$KALYX_ROOTFS/proc"
+mountpoint -q "$KALYX_ROOTFS/sys" || mount -t sysfs sysfs "$KALYX_ROOTFS/sys"
+mountpoint -q "$KALYX_ROOTFS/run" || mount -t tmpfs tmpfs "$KALYX_ROOTFS/run"
+
+if [[ -h "$KALYX_ROOTFS/dev/shm" ]]; then
+  install -d -m 1777 "$KALYX_ROOTFS$(realpath /dev/shm)"
+elif [[ -d "$KALYX_ROOTFS/dev/shm" ]] && ! mountpoint -q "$KALYX_ROOTFS/dev/shm"; then
+  mount -t tmpfs -o nosuid,nodev tmpfs "$KALYX_ROOTFS/dev/shm"
+fi
+
+info "Pseudo-filesystems montados em $KALYX_ROOTFS"

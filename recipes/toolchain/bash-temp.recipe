@@ -1,0 +1,16 @@
+pkg_name="bash-temp"
+pkg_version="5.3"
+source_archive="bash-5.3.tar.gz"
+source_dir="bash-5.3"
+
+build_recipe() {
+  ./configure --prefix=/usr \
+              --build="$(sh support/config.guess)" \
+              --host="$LFS_TGT" \
+              --without-bash-malloc
+
+  make
+  make DESTDIR="$LFS" install
+  ln -sv bash "$LFS/bin/sh"
+}
+

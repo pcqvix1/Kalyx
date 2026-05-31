@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+require_linux
+ensure_linux_build_path "$KALYX_WORKDIR"
+ensure_dirs
+
+[[ "$(id -u)" -eq 0 ]] || die "Rode como root: sudo KALYX_WORKDIR=... bash scripts/prepare-chroot"
+[[ -d "$KALYX_ROOTFS/usr" ]] || die "Rootfs nao preparado. Rode scripts/prepare-rootfs primeiro."
+
+info "Preparando chroot LFS em $KALYX_ROOTFS"
+
+chown --from lfs -R root:root "$KALYX_ROOTFS"/{usr,var,etc,tools} 2>/dev/null || \
+  chown -R root:root "$KALYX_ROOTFS"/{usr,var,etc,tools}
+
+case "$(uname -m)" in
+  x86_64)
+    if [[ -d "$KALYX_ROOTFS/lib64" ]]; then
+      chown --from lfs -R root:root "$KALYX_ROOTFS/lib64" 2>/dev/null || chown -R root:root "$KALYX_ROOTFS/lib64"
+    fi
+  ;;
+esac
+
+mkdir -pv "$KALYX_ROOTFS"/{boot,home,mnt,opt,srv}
+mkdir -pv "$KALYX_ROOTFS"/etc/{opt,sysconfig}
+mkdir -pv "$KALYX_ROOTFS"/lib/firmware
+mkdir -pv "$KALYX_ROOTFS"/media/{floppy,cdrom}
+mkdir -pv "$KALYX_ROOTFS"/usr/{,local/}{include,src}
+mkdir -pv "$KALYX_ROOTFS"/usr/lib/locale
+mkdir -pv "$KALYX_ROOTFS"/usr/local/{bin,lib,sbin}
+mkdir -pv "$KALYX_ROOTFS"/usr/{,local/}share/{color,dict,doc,info,locale,man}
+mkdir -pv "$KALYX_ROOTFS"/usr/{,local/}share/{misc,terminfo,zoneinfo}
+mkdir -pv "$KALYX_ROOTFS"/usr/{,local/}share/man/man{1..8}
+mkdir -pv "$KALYX_ROOTFS"/var/{cache,local,log,mail,opt,spool}
+mkdir -pv "$KALYX_ROOTFS"/var/lib/{color,misc,locate}
+ln -sfv /run "$KALYX_ROOTFS/var/run"
+ln -sfv /run/lock "$KALYX_ROOTFS/var/lock"
+
+install -dv -m 0750 "$KALYX_ROOTFS/root"
+install -dv -m 1777 "$KALYX_ROOTFS/tmp" "$KALYX_ROOTFS/var/tmp"
+install -dv "$KALYX_ROOTFS/sources/build"
+
+ln -sfv /proc/self/mounts "$KALYX_ROOTFS/etc/mtab"
+
+cat > "$KALYX_ROOTFS/etc/hosts" <<HOSTS
+127.0.0.1  localhost kalyx
+::1        localhost
+HOSTS
+
+cat > "$KALYX_ROOTFS/etc/passwd" <<'PASSWD'
+root:x:0:0:root:/root:/bin/bash
+bin:x:1:1:bin:/dev/null:/usr/bin/false
+daemon:x:6:6:Daemon User:/dev/null:/usr/bin/false
+messagebus:x:18:18:D-Bus Message Daemon User:/run/dbus:/usr/bin/false
+systemd-journal-gateway:x:73:73:systemd Journal Gateway:/:/usr/bin/false
+systemd-journal-remote:x:74:74:systemd Journal Remote:/:/usr/bin/false
+systemd-journal-upload:x:75:75:systemd Journal Upload:/:/usr/bin/false
+systemd-network:x:76:76:systemd Network Management:/:/usr/bin/false
+systemd-resolve:x:77:77:systemd Resolver:/:/usr/bin/false
+systemd-timesync:x:78:78:systemd Time Synchronization:/:/usr/bin/false
+systemd-coredump:x:79:79:systemd Core Dumper:/:/usr/bin/false
+uuidd:x:80:80:UUID Generation Daemon User:/dev/null:/usr/bin/false
+systemd-oom:x:81:81:systemd Out Of Memory Daemon:/:/usr/bin/false
+nobody:x:65534:65534:Unprivileged User:/dev/null:/usr/bin/false
+tester:x:101:101::/home/tester:/bin/bash
+PASSWD
+
+cat > "$KALYX_ROOTFS/etc/group" <<'GROUP'
+root:x:0:
+bin:x:1:daemon
+sys:x:2:
+kmem:x:3:
+tape:x:4:
+tty:x:5:
+daemon:x:6:
+floppy:x:7:
+disk:x:8:
+lp:x:9:
+dialout:x:10:
+audio:x:11:
+video:x:12:
+utmp:x:13:
+clock:x:14:
+cdrom:x:15:
+adm:x:16:
+messagebus:x:18:
+systemd-journal:x:23:
+input:x:24:
+mail:x:34:
+kvm:x:61:
+systemd-journal-gateway:x:73:
+systemd-journal-remote:x:74:
+systemd-journal-upload:x:75:
+systemd-network:x:76:
+systemd-resolve:x:77:
+systemd-timesync:x:78:
+systemd-coredump:x:79:
+uuidd:x:80:
+systemd-oom:x:81:
+wheel:x:97:
+tester:x:101:
+users:x:999:
+nogroup:x:65534:
+GROUP
+
+install -o 101 -g 101 -d "$KALYX_ROOTFS/home/tester"
+
+touch "$KALYX_ROOTFS"/var/log/{btmp,lastlog,faillog,wtmp}
+chgrp -v 13 "$KALYX_ROOTFS/var/log/lastlog"
+chmod -v 664 "$KALYX_ROOTFS/var/log/lastlog"
+chmod -v 600 "$KALYX_ROOTFS/var/log/btmp"
+
+bash "$KALYX_REPO/scripts/mount-rootfs"
+
+info "Chroot preparado. Proximo passo: sudo KALYX_WORKDIR=$KALYX_WORKDIR bash scripts/build-chroot-temp"
+

@@ -1,0 +1,16 @@
+pkg_name="file"
+pkg_version="5.46"
+source_archive="file-5.46.tar.gz"
+source_dir="file-5.46"
+
+build_recipe() {
+  ./configure --prefix=/usr
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}
+

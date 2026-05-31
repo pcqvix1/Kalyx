@@ -11,7 +11,25 @@ phase="${1:-}"
 recipe_dir="$KALYX_REPO/recipes/$phase"
 [[ -d "$recipe_dir" ]] || die "Diretorio de receitas nao encontrado: $recipe_dir"
 
-mapfile -t recipes < <(find "$recipe_dir" -maxdepth 1 -type f -name '*.recipe' | sort)
+manifest="$recipe_dir/manifest"
+recipes=()
+
+if [[ -f "$manifest" ]]; then
+  missing_after=0
+  while IFS= read -r entry; do
+    [[ -z "$entry" || "$entry" == \#* ]] && continue
+    recipe="$recipe_dir/$entry.recipe"
+    if [[ ! -f "$recipe" ]]; then
+      warn "Receita ainda nao implementada: $recipe"
+      warn "Parando a fase '$phase' no primeiro pacote ausente."
+      missing_after=1
+      break
+    fi
+    recipes+=("$recipe")
+  done < "$manifest"
+else
+  mapfile -t recipes < <(find "$recipe_dir" -maxdepth 1 -type f -name '*.recipe' | sort)
+fi
 
 if [[ "${#recipes[@]}" -eq 0 ]]; then
   warn "Nenhuma receita em $recipe_dir."
@@ -20,8 +38,12 @@ if [[ "${#recipes[@]}" -eq 0 ]]; then
 fi
 
 for recipe in "${recipes[@]}"; do
-  run_logged "pkg-$(basename "$recipe" .recipe)" bash "$KALYX_REPO/scripts/pkg-build" "$recipe"
+  run_logged "lfs-$(basename "$recipe" .recipe)" bash "$KALYX_REPO/scripts/lfs-build-recipe" "$recipe"
 done
 
-info "Fase '$phase' concluida."
+if [[ "${missing_after:-0}" -eq 1 ]]; then
+  warn "Fase '$phase' parcialmente concluida. Continue implementando a proxima receita do manifesto."
+  exit 0
+fi
 
+info "Fase '$phase' concluida."

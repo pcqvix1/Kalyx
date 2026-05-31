@@ -55,3 +55,20 @@ A configuracao live inicial prepara:
 - autologin em TTY1 como fallback;
 - launcher grafico `Instalar Kalyx`;
 - sudo sem senha apenas para `/usr/sbin/kalyx-install` no usuario live.
+
+## Interface instalada
+
+A configuracao padrao do usuario instalado vem de `/etc/skel`:
+
+- painel XFCE reduzido;
+- relogio com dia, data e hora;
+- launcher `Config`;
+- script `kalyx-time-config`, que usa `timedatectl` para NTP, timezone e hora
+  manual;
+- autorizacao via Polkit para usuarios no grupo `wheel`.
+
+## Manifestos
+
+Cada fase pode ter um arquivo `manifest` dentro de `recipes/<fase>`. Quando ele
+existe, `scripts/run-recipe-phase` executa as receitas exatamente nessa ordem e
+falha se alguma receita estiver faltando.

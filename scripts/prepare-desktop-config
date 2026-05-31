@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+require_linux
+ensure_linux_build_path "$KALYX_WORKDIR"
+ensure_dirs
+
+[[ -d "$KALYX_ROOTFS/etc" ]] || die "Rootfs nao preparado. Rode scripts/prepare-rootfs primeiro."
+
+info "Instalando interface XFCE reduzida da Kalyx em $KALYX_ROOTFS"
+
+skel_xfconf="$KALYX_ROOTFS/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml"
+mkdir -p \
+  "$skel_xfconf" \
+  "$KALYX_ROOTFS/usr/local/bin" \
+  "$KALYX_ROOTFS/usr/share/applications" \
+  "$KALYX_ROOTFS/etc/polkit-1/rules.d"
+
+install -m 0755 "$KALYX_REPO/desktop/kalyx-time-config" "$KALYX_ROOTFS/usr/local/bin/kalyx-time-config"
+install -m 0644 "$KALYX_REPO/desktop/xfce4-panel.xml" "$skel_xfconf/xfce4-panel.xml"
+install -m 0644 "$KALYX_REPO/desktop/xfce4-desktop.xml" "$skel_xfconf/xfce4-desktop.xml"
+
+cat > "$KALYX_ROOTFS/usr/share/applications/kalyx-time-config.desktop" <<DESKTOP
+[Desktop Entry]
+Type=Application
+Name=Config
+Comment=Configurar data, hora e timezone
+Exec=/usr/local/bin/kalyx-time-config
+Terminal=false
+Categories=Settings;System;
+DESKTOP
+
+cat > "$KALYX_ROOTFS/etc/polkit-1/rules.d/49-kalyx-time.rules" <<'POLKIT'
+polkit.addRule(function(action, subject) {
+  if ((action.id == "org.freedesktop.timedate1.set-time" ||
+       action.id == "org.freedesktop.timedate1.set-timezone" ||
+       action.id == "org.freedesktop.timedate1.set-ntp") &&
+      subject.isInGroup("wheel")) {
+    return polkit.Result.AUTH_ADMIN;
+  }
+});
+POLKIT
+
+info "Interface reduzida pronta: painel com data/hora e botao Config."
+

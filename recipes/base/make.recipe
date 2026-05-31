@@ -1,0 +1,17 @@
+pkg_name="make"
+pkg_version="4.4.1"
+source_archive="make-4.4.1.tar.gz"
+source_dir="make-4.4.1"
+
+build_recipe() {
+  ./configure --prefix=/usr
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    chown -R tester .
+    su tester -c "PATH=$PATH make check"
+  fi
+
+  make install
+}
+

@@ -1,0 +1,14 @@
+pkg_name="make-temp"
+pkg_version="4.4.1"
+source_archive="make-4.4.1.tar.gz"
+source_dir="make-4.4.1"
+
+build_recipe() {
+  ./configure --prefix=/usr \
+              --host="$LFS_TGT" \
+              --build="$(build-aux/config.guess)"
+
+  make
+  make DESTDIR="$LFS" install
+}
+

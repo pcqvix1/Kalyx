@@ -1,0 +1,9 @@
+pkg_name="iana-etc"
+pkg_version="20260202"
+source_archive="iana-etc-20260202.tar.gz"
+source_dir="iana-etc-20260202"
+
+build_recipe() {
+  cp -v services protocols /etc
+}
+

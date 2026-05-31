@@ -1,0 +1,10 @@
+pkg_name="man-pages"
+pkg_version="6.17"
+source_archive="man-pages-6.17.tar.xz"
+source_dir="man-pages-6.17"
+
+build_recipe() {
+  rm -v man3/crypt*
+  make -R GIT=false prefix=/usr install
+}
+

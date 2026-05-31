@@ -1,0 +1,16 @@
+pkg_name="diffutils"
+pkg_version="3.12"
+source_archive="diffutils-3.12.tar.xz"
+source_dir="diffutils-3.12"
+
+build_recipe() {
+  ./configure --prefix=/usr
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}
+

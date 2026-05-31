@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+require_linux
+require_cmd chroot env
+
+[[ "$(id -u)" -eq 0 ]] || die "Rode como root para entrar no chroot."
+[[ -x "$KALYX_ROOTFS/usr/bin/env" || -x "$KALYX_ROOTFS/bin/bash" ]] || die "Rootfs ainda nao tem ferramentas suficientes para chroot."
+
+bash "$KALYX_REPO/scripts/mount-rootfs"
+
+exec chroot "$KALYX_ROOTFS" /usr/bin/env -i \
+  HOME=/root \
+  TERM="${TERM:-linux}" \
+  PS1='(kalyx chroot) \u:\w\$ ' \
+  PATH=/usr/bin:/usr/sbin \
+  /bin/bash --login
+

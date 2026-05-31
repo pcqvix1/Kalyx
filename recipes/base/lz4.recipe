@@ -1,0 +1,15 @@
+pkg_name="lz4"
+pkg_version="1.10.0"
+source_archive="lz4-1.10.0.tar.gz"
+source_dir="lz4-1.10.0"
+
+build_recipe() {
+  make BUILD_STATIC=no PREFIX=/usr
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make -j1 check
+  fi
+
+  make BUILD_STATIC=no PREFIX=/usr install
+}
+

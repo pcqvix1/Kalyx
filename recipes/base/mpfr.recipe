@@ -1,0 +1,22 @@
+pkg_name="mpfr"
+pkg_version="4.2.2"
+source_archive="mpfr-4.2.2.tar.xz"
+source_dir="mpfr-4.2.2"
+
+build_recipe() {
+  ./configure --prefix=/usr        \
+              --disable-static     \
+              --enable-thread-safe \
+              --docdir=/usr/share/doc/mpfr-4.2.2
+
+  make
+  make html
+
+  if [[ "${KALYX_RUN_TESTS:-1}" != "0" ]]; then
+    make check
+  fi
+
+  make install
+  make install-html
+}
+

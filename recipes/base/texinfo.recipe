@@ -1,0 +1,19 @@
+pkg_name="texinfo"
+pkg_version="7.2"
+source_archive="texinfo-7.2.tar.xz"
+source_dir="texinfo-7.2"
+
+build_recipe() {
+  sed 's/! $output_file eq/$output_file ne/' -i tp/Texinfo/Convert/*.pm
+
+  ./configure --prefix=/usr
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+  make TEXMF=/usr/share/texmf install-tex
+}
+

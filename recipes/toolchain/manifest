@@ -1,0 +1,24 @@
+# LFS 13.0-systemd cross-toolchain and temporary tools order.
+binutils-pass1
+gcc-pass1
+linux-api-headers
+glibc
+libstdcxx-pass1
+m4-temp
+ncurses-temp
+bash-temp
+coreutils-temp
+diffutils-temp
+file-temp
+findutils-temp
+gawk-temp
+grep-temp
+gzip-temp
+make-temp
+patch-temp
+sed-temp
+tar-temp
+xz-temp
+binutils-pass2
+gcc-pass2
+

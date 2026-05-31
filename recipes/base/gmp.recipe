@@ -1,0 +1,25 @@
+pkg_name="gmp"
+pkg_version="6.3.0"
+source_archive="gmp-6.3.0.tar.xz"
+source_dir="gmp-6.3.0"
+
+build_recipe() {
+  sed -i '/long long t1;/,+1s/()/(...)/' configure
+
+  ./configure --prefix=/usr    \
+              --enable-cxx     \
+              --disable-static \
+              --docdir=/usr/share/doc/gmp-6.3.0
+
+  make
+  make html
+
+  if [[ "${KALYX_RUN_TESTS:-1}" != "0" ]]; then
+    make check 2>&1 | tee gmp-check-log
+    awk '/# PASS:/{total+=$3} ; END{print total}' gmp-check-log
+  fi
+
+  make install
+  make install-html
+}
+

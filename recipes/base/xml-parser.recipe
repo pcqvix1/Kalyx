@@ -1,0 +1,16 @@
+pkg_name="xml-parser"
+pkg_version="2.47"
+source_archive="XML-Parser-2.47.tar.gz"
+source_dir="XML-Parser-2.47"
+
+build_recipe() {
+  perl Makefile.PL
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make test
+  fi
+
+  make install
+}
+

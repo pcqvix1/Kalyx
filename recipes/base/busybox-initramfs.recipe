@@ -1,0 +1,14 @@
+pkg_name="busybox-initramfs"
+pkg_version="1.37.0"
+source_archive="busybox-1.37.0.tar.bz2"
+source_dir="busybox-1.37.0"
+
+build_recipe() {
+  make defconfig
+  sed -i 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/' .config
+  sed -i 's/^CONFIG_TC=y/# CONFIG_TC is not set/' .config || true
+  make oldconfig
+  make
+  install -v -m755 busybox /bin/busybox
+}
+

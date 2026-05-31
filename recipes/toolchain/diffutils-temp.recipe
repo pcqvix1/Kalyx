@@ -1,0 +1,15 @@
+pkg_name="diffutils-temp"
+pkg_version="3.12"
+source_archive="diffutils-3.12.tar.xz"
+source_dir="diffutils-3.12"
+
+build_recipe() {
+  ./configure --prefix=/usr \
+              --host="$LFS_TGT" \
+              gl_cv_func_strcasecmp_works=y \
+              --build="$(./build-aux/config.guess)"
+
+  make
+  make DESTDIR="$LFS" install
+}
+

@@ -10,9 +10,12 @@ Este repositorio contem a fundacao do projeto:
 
 - validacao do host de build;
 - download das fontes oficiais do LFS systemd stable;
+- download das fontes oficiais do BLFS systemd stable;
 - formato inicial de receitas e pacotes `.tar.zst`;
-- instalador TUI inicial com fluxo UEFI/ext4;
-- esqueleto para montagem de ISO.
+- manifestos de ordem para LFS, BLFS minimo e XFCE reduzido;
+- instalador TUI com usuario/senha/timezone;
+- configuracao XFCE reduzida com data, hora e botao Config;
+- esqueleto de initramfs live e montagem de ISO.
 
 O build pesado deve rodar dentro de uma VM Ubuntu no VirtualBox, com disco no
 `D:\`, nao diretamente no Windows nem em pasta compartilhada.
@@ -43,6 +46,10 @@ git clone <url-do-repo> kalyx
 cd kalyx
 bash scripts/host-check
 bash scripts/fetch-sources
+bash scripts/fetch-blfs-sources
+bash scripts/prepare-rootfs
+bash scripts/prepare-desktop-config
+bash scripts/prepare-live-config
 ```
 
 ## Layout
@@ -51,6 +58,8 @@ bash scripts/fetch-sources
 config/        Configuracao padrao da Kalyx e do build
 docs/          Guias de ambiente, arquitetura e roadmap
 installer/     Instalador TUI da ISO live
+initramfs/     Initramfs live para montar squashfs
+desktop/       Configuracao XFCE reduzida e app de data/hora
 recipes/       Receitas de pacotes
 scripts/       Automacao do build, pacotes, fontes e ISO
 ```
@@ -63,3 +72,9 @@ scripts/       Automacao do build, pacotes, fontes e ISO
 - empacotar artefatos simples antes de criar um gerenciador de pacotes completo;
 - manter operacoes destrutivas atras de confirmacoes claras.
 
+## Aviso honesto
+
+Os manifestos de LFS/BLFS ja definem a ordem, mas as receitas reais ainda
+precisam ser preenchidas uma por uma. Uma distro LFS completa nao nasce de um
+script vazio: cada pacote precisa de fonte, checksum, patches, comandos de
+build, install e teste.

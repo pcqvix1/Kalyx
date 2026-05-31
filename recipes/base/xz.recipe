@@ -1,0 +1,19 @@
+pkg_name="xz"
+pkg_version="5.8.2"
+source_archive="xz-5.8.2.tar.xz"
+source_dir="xz-5.8.2"
+
+build_recipe() {
+  ./configure --prefix=/usr    \
+              --disable-static \
+              --docdir=/usr/share/doc/xz-5.8.2
+
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}
+

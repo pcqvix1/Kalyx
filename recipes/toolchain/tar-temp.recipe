@@ -1,0 +1,14 @@
+pkg_name="tar-temp"
+pkg_version="1.35"
+source_archive="tar-1.35.tar.xz"
+source_dir="tar-1.35"
+
+build_recipe() {
+  ./configure --prefix=/usr \
+              --host="$LFS_TGT" \
+              --build="$(build-aux/config.guess)"
+
+  make
+  make DESTDIR="$LFS" install
+}
+

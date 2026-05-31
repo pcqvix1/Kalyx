@@ -1,0 +1,23 @@
+pkg_name="procps-ng"
+pkg_version="4.0.6"
+source_archive="procps-ng-4.0.6.tar.xz"
+source_dir="procps-ng-4.0.6"
+
+build_recipe() {
+  ./configure --prefix=/usr                           \
+              --docdir=/usr/share/doc/procps-ng-4.0.6 \
+              --disable-static                        \
+              --disable-kill                          \
+              --enable-watch8bit                      \
+              --with-systemd
+
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    chown -R tester .
+    su tester -c "PATH=$PATH make check"
+  fi
+
+  make install
+}
+

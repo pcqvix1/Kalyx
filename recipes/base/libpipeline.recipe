@@ -1,0 +1,11 @@
+pkg_name="libpipeline"
+pkg_version="1.5.8"
+source_archive="libpipeline-1.5.8.tar.gz"
+source_dir="libpipeline-1.5.8"
+
+build_recipe() {
+  ./configure --prefix=/usr
+  make
+  make install
+}
+

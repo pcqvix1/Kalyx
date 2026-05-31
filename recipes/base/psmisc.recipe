@@ -1,0 +1,16 @@
+pkg_name="psmisc"
+pkg_version="23.7"
+source_archive="psmisc-23.7.tar.xz"
+source_dir="psmisc-23.7"
+
+build_recipe() {
+  ./configure --prefix=/usr
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}
+

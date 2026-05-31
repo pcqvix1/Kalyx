@@ -1,0 +1,57 @@
+#!/bin/busybox sh
+
+set -eu
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export PATH
+
+panic() {
+  echo "Kalyx initramfs: $*" >&2
+  exec sh
+}
+
+mkdir -p /proc /sys /dev /run /newroot
+mount -t proc proc /proc || panic "falha ao montar /proc"
+mount -t sysfs sysfs /sys || panic "falha ao montar /sys"
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || mount -t tmpfs devtmpfs /dev || panic "falha ao montar /dev"
+
+cmdline="$(cat /proc/cmdline)"
+iso_label="KALYX_LIVE"
+
+for arg in $cmdline; do
+  case "$arg" in
+    live.label=*) iso_label="${arg#live.label=}" ;;
+  esac
+done
+
+mkdir -p /run/live/medium /run/live/rootfs /run/live/overlay /run/live/work
+
+tries=0
+live_dev=""
+while [ "$tries" -lt 20 ]; do
+  live_dev="$(blkid -L "$iso_label" 2>/dev/null || true)"
+  [ -n "$live_dev" ] && break
+  sleep 1
+  tries=$((tries + 1))
+done
+
+[ -n "$live_dev" ] || panic "nao encontrei midia live com label $iso_label"
+
+mount -o ro "$live_dev" /run/live/medium || panic "falha ao montar midia live"
+[ -f /run/live/medium/live/rootfs.squashfs ] || panic "rootfs.squashfs ausente"
+
+mount -t squashfs -o loop,ro /run/live/medium/live/rootfs.squashfs /run/live/rootfs || panic "falha ao montar squashfs"
+mount -t tmpfs tmpfs /run/live/overlay || panic "falha ao montar tmpfs overlay"
+mkdir -p /run/live/overlay/upper /run/live/overlay/work
+mount -t overlay overlay \
+  -o lowerdir=/run/live/rootfs,upperdir=/run/live/overlay/upper,workdir=/run/live/overlay/work \
+  /newroot || panic "falha ao montar overlay"
+
+mkdir -p /newroot/run/live
+mount --move /run/live /newroot/run/live
+mount --move /proc /newroot/proc
+mount --move /sys /newroot/sys
+mount --move /dev /newroot/dev
+
+exec switch_root /newroot /sbin/init
+

@@ -1,0 +1,16 @@
+pkg_name="gperf"
+pkg_version="3.3"
+source_archive="gperf-3.3.tar.gz"
+source_dir="gperf-3.3"
+
+build_recipe() {
+  ./configure --prefix=/usr --docdir=/usr/share/doc/gperf-3.3
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}
+

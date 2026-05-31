@@ -1,0 +1,28 @@
+pkg_name="coreutils"
+pkg_version="9.10"
+source_archive="coreutils-9.10.tar.xz"
+source_dir="coreutils-9.10"
+extra_archives=("coreutils-9.10-i18n-1.patch")
+
+build_recipe() {
+  patch -Np1 -i /sources/coreutils-9.10-i18n-1.patch
+  autoreconf -fv
+  automake -af
+
+  FORCE_UNSAFE_CONFIGURE=1 ./configure --prefix=/usr
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make NON_ROOT_USERNAME=tester check-root
+    groupadd -g 102 dummy -U tester
+    chown -R tester .
+    su tester -c "PATH=$PATH make -k RUN_EXPENSIVE_TESTS=yes check" < /dev/null
+    groupdel dummy
+  fi
+
+  make install
+  mv -v /usr/bin/chroot /usr/sbin
+  mv -v /usr/share/man/man1/chroot.1 /usr/share/man/man8/chroot.8
+  sed -i 's/"1"/"8"/' /usr/share/man/man8/chroot.8
+}
+

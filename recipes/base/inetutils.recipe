@@ -1,6 +1,6 @@
 pkg_name="inetutils"
 pkg_version="2.7"
-source_archive="inetutils-2.7.tar.xz"
+source_archive="inetutils-2.7.tar.gz"
 source_dir="inetutils-2.7"
 
 build_recipe() {
@@ -26,4 +26,3 @@ build_recipe() {
   make install
   mv -v /usr/{,s}bin/ifconfig
 }
-

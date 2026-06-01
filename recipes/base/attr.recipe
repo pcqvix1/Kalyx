@@ -1,6 +1,6 @@
 pkg_name="attr"
 pkg_version="2.5.2"
-source_archive="attr-2.5.2.tar.xz"
+source_archive="attr-2.5.2.tar.gz"
 source_dir="attr-2.5.2"
 
 build_recipe() {
@@ -17,4 +17,3 @@ build_recipe() {
 
   make install
 }
-

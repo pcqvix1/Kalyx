@@ -9,6 +9,7 @@ lz4
 zstd
 file
 readline
+pcre2
 m4
 bc
 flex
@@ -57,7 +58,6 @@ ninja
 meson
 kmod
 coreutils
-check
 diffutils
 gawk
 findutils

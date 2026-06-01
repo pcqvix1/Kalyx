@@ -10,7 +10,7 @@ recipe="${1:-}"
 [[ -f "$recipe" ]] || die "Receita nao encontrada: $recipe"
 
 require_linux
-require_cmd chroot tar
+require_cmd chroot tar md5sum
 ensure_linux_build_path "$KALYX_WORKDIR"
 ensure_dirs
 
@@ -61,7 +61,8 @@ source "$recipe"
 [[ -n "$source_archive" ]] || die "Receita sem source_archive"
 
 lfs_verify_archive "$source_archive"
-for extra in "${extra_archives[@]:-}"; do
+for extra in "${extra_archives[@]}"; do
+  [[ -n "$extra" ]] || continue
   lfs_verify_archive "$extra"
 done
 
@@ -77,7 +78,8 @@ rm -rf "$host_phase"
 mkdir -p "$host_phase" "$KALYX_ROOTFS/sources"
 
 install -m 0644 "$(lfs_source_path "$source_archive")" "$KALYX_ROOTFS/sources/${source_archive##*/}"
-for extra in "${extra_archives[@]:-}"; do
+for extra in "${extra_archives[@]}"; do
+  [[ -n "$extra" ]] || continue
   install -m 0644 "$(lfs_source_path "$extra")" "$KALYX_ROOTFS/sources/${extra##*/}"
 done
 

@@ -79,8 +79,8 @@ nao existe, o runner para naquele ponto e informa qual e a proxima a criar.
 
 ```bash
 bash scripts/build-toolchain
-sudo KALYX_WORKDIR=$HOME/kalyx-work bash scripts/prepare-chroot
-sudo KALYX_WORKDIR=$HOME/kalyx-work bash scripts/build-chroot-temp
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/prepare-chroot
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/build-chroot-temp
 bash scripts/build-base
 bash scripts/build-blfs-base
 bash scripts/build-desktop
@@ -92,3 +92,19 @@ Depois que o rootfs tiver kernel, systemd, BusyBox para initramfs e XFCE:
 bash scripts/build-live-initramfs
 bash scripts/make-iso
 ```
+
+Comando até agora usados na ordem, usados dentro da pasta kalyx:
+
+```bash
+bash scripts/host-check 
+bash scripts/fetch-sources 
+bash scripts/prepare-rootfs 
+bash scripts/prepare-desktop-config 
+bash scripts/prepare-live-config 
+bash scripts/build-toolchain
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/prepare-chroot
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/build-chroot-temp
+bash scripts/build-base
+```
+
+

@@ -22,8 +22,16 @@ while IFS= read -r entry; do
     warn "Parando fase '$phase' no primeiro pacote ausente."
     exit 0
   fi
+
+  pkg_name="$(bash -c 'set -Eeuo pipefail; pkg_name=""; source "$1"; printf "%s\n" "$pkg_name"' _ "$recipe")"
+  [[ -n "$pkg_name" ]] || die "Receita sem pkg_name: $recipe"
+  stamp="$KALYX_ROOTFS/var/lib/kalyx/lfs-stamps/$pkg_name"
+  if [[ "${KALYX_FORCE_REBUILD:-0}" != "1" && -f "$stamp" ]]; then
+    info "Pulando $pkg_name; stamp ja existe em $stamp"
+    continue
+  fi
+
   run_logged "$phase-$entry" bash "$KALYX_REPO/scripts/chroot-build-recipe" "$recipe"
 done < "$manifest"
 
 info "Fase '$phase' concluida."
-

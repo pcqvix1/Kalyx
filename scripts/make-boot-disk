@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+require_linux
+require_cmd sgdisk losetup partprobe mkfs.vfat mkfs.ext4 blkid rsync mount umount chroot
+ensure_linux_build_path "$KALYX_WORKDIR"
+ensure_dirs
+
+[[ "$(id -u)" -eq 0 ]] || die "Rode como root: sudo KALYX_WORKDIR=... bash scripts/make-boot-disk"
+[[ -d "$KALYX_ROOTFS/usr" ]] || die "Rootfs nao preparada: $KALYX_ROOTFS"
+
+image="${KALYX_BOOT_IMAGE:-$KALYX_ISO/${KALYX_ID}-${KALYX_VERSION}-terminal-x86_64.img}"
+size="${KALYX_BOOT_IMAGE_SIZE:-8G}"
+mnt="$KALYX_BUILD/boot-disk-mnt"
+loopdev=""
+
+cleanup() {
+  set +e
+  if [[ -n "${mnt:-}" && "$mnt" == "$KALYX_BUILD/"* ]]; then
+    mountpoint -q "$mnt/dev/pts" && umount "$mnt/dev/pts"
+    mountpoint -q "$mnt/dev" && umount "$mnt/dev"
+    mountpoint -q "$mnt/proc" && umount "$mnt/proc"
+    mountpoint -q "$mnt/sys" && umount "$mnt/sys"
+    mountpoint -q "$mnt/run" && umount "$mnt/run"
+    mountpoint -q "$mnt/boot/efi" && umount "$mnt/boot/efi"
+    mountpoint -q "$mnt" && umount "$mnt"
+  fi
+  [[ -n "$loopdev" ]] && losetup -d "$loopdev" 2>/dev/null
+}
+trap cleanup EXIT
+
+bash "$KALYX_REPO/scripts/finalize-base"
+
+kernel="$(find "$KALYX_ROOTFS/boot" -maxdepth 1 -type f -name 'vmlinuz-*' | sort | tail -n 1 || true)"
+[[ -n "$kernel" ]] || die "Kernel nao encontrado em $KALYX_ROOTFS/boot"
+
+mkdir -p "$(dirname "$image")" "$mnt"
+rm -f "$image"
+
+info "Criando imagem de disco: $image ($size)"
+truncate -s "$size" "$image"
+sgdisk --zap-all "$image"
+sgdisk -n 1:1MiB:+512MiB -t 1:EF00 -c 1:KALYX_EFI "$image"
+sgdisk -n 2:0:0       -t 2:8300 -c 2:KALYX_ROOT "$image"
+
+loopdev="$(losetup --find --show --partscan "$image")"
+partprobe "$loopdev"
+sleep 2
+
+esp="${loopdev}p1"
+root="${loopdev}p2"
+[[ -b "$esp" && -b "$root" ]] || die "Particoes do loop device nao apareceram: $loopdev"
+
+mkfs.vfat -F 32 -n KALYX_EFI "$esp"
+mkfs.ext4 -F -L KALYX_ROOT "$root"
+
+mount "$root" "$mnt"
+mkdir -p "$mnt/boot/efi"
+mount "$esp" "$mnt/boot/efi"
+
+info "Copiando rootfs para a imagem"
+rsync -aHAX --numeric-ids \
+  --exclude='/dev/*' \
+  --exclude='/proc/*' \
+  --exclude='/sys/*' \
+  --exclude='/run/*' \
+  --exclude='/tmp/*' \
+  "$KALYX_ROOTFS"/ "$mnt"/
+
+mkdir -p "$mnt"/{dev,proc,sys,run,tmp,boot/efi}
+chmod 1777 "$mnt/tmp"
+
+root_uuid="$(blkid -s UUID -o value "$root")"
+esp_uuid="$(blkid -s UUID -o value "$esp")"
+
+cat > "$mnt/etc/fstab" <<FSTAB
+# Begin /etc/fstab
+#
+# file system      mount-point  type  options  dump  fsck
+UUID=$root_uuid    /            ext4  defaults 1     1
+UUID=$esp_uuid     /boot/efi    vfat  defaults 0     1
+
+# End /etc/fstab
+FSTAB
+
+mkdir -p "$mnt/boot/grub"
+cat > "$mnt/boot/grub/grub.cfg" <<GRUB
+# Begin /boot/grub/grub.cfg
+set default=0
+set timeout=5
+
+insmod part_gpt
+insmod ext2
+search --no-floppy --set=root --fs-uuid $root_uuid
+set gfxpayload=1024x768x32
+
+menuentry "Kalyx Terminal" {
+    linux /boot/${kernel##*/} root=UUID=$root_uuid ro systemd.unit=multi-user.target
+}
+
+menuentry "Kalyx Terminal (debug)" {
+    linux /boot/${kernel##*/} root=UUID=$root_uuid ro systemd.unit=multi-user.target systemd.log_level=debug
+}
+# End /boot/grub/grub.cfg
+GRUB
+
+mount --bind /dev "$mnt/dev"
+mount -t devpts devpts -o gid=5,mode=0620 "$mnt/dev/pts"
+mount -t proc proc "$mnt/proc"
+mount -t sysfs sysfs "$mnt/sys"
+mount -t tmpfs tmpfs "$mnt/run"
+
+info "Instalando GRUB UEFI removivel na imagem"
+grub_install="/usr/sbin/grub-install"
+if [[ ! -x "$mnt$grub_install" ]]; then
+  grub_install="/usr/bin/grub-install"
+fi
+[[ -x "$mnt$grub_install" ]] || die "grub-install nao encontrado na imagem copiada."
+
+chroot "$mnt" "$grub_install" \
+  --target=x86_64-efi \
+  --efi-directory=/boot/efi \
+  --bootloader-id=Kalyx \
+  --removable \
+  --no-nvram \
+  --recheck
+
+sync
+
+info "Imagem bootavel pronta: $image"
+info "Login de teste: kalyx / kalyx"

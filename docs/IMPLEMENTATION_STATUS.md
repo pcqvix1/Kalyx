@@ -11,6 +11,8 @@
 - Instalador TUI com disco, hostname, usuario, senha e timezone.
 - Remocao de autologin live no sistema instalado.
 - Scripts de mount/chroot.
+- Finalizacao da base para boot terminal.
+- Geracao de imagem raw UEFI de teste terminal.
 - Initramfs live baseado em BusyBox, squashfs e overlayfs.
 - Manifestos de ordem para toolchain, base, BLFS minimo e XFCE.
 - Executor `scripts/lfs-build-recipe` para receitas LFS.
@@ -122,29 +124,24 @@
 
 - Receitas reais de todos os pacotes LFS.
 - Receitas reais dos pacotes BLFS/XFCE.
-- Configuracao final do kernel.
-- BusyBox compilado para o initramfs.
+- Conversao/fluxo de teste da imagem terminal no VirtualBox do host.
 - Teste de boot real em VirtualBox.
 - ISO final validada.
 
 ## Proxima tarefa real
 
-Rodar `bash scripts/build-toolchain` dentro da VM. Ele deve construir as
-receitas ja implementadas da cross-toolchain e terminar o manifesto
-`recipes/toolchain/manifest`. Depois, como root, rodar:
+Depois que `scripts/build-base` concluiu na VM, finalizar a base e gerar a
+primeira imagem UEFI de teste terminal:
 
 ```bash
-sudo KALYX_WORKDIR=$HOME/kalyx-work bash scripts/prepare-chroot
-sudo KALYX_WORKDIR=$HOME/kalyx-work bash scripts/build-chroot-temp
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/finalize-base
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/make-boot-disk
 ```
 
-A proxima fronteira apos isso e iniciar as receitas finais do sistema base no
-capitulo 8 do LFS:
+O criterio de sucesso deste marco e bootar a imagem em modo UEFI e chegar em:
 
-```bash
-sudo KALYX_WORKDIR=$HOME/kalyx-work bash scripts/build-base
+```text
+GRUB -> kernel Kalyx -> systemd -> login terminal
 ```
 
-Essa fase agora cobre todo o manifesto `recipes/base/manifest`. A proxima etapa
-e executar/corrigir o build real na VM e entao adicionar os scripts de
-configuracao final de sistema, fstab, GRUB instalado no disco e teste de boot.
+Login de teste da imagem terminal: `kalyx` / `kalyx`.

@@ -81,9 +81,32 @@ nao existe, o runner para naquele ponto e informa qual e a proxima a criar.
 bash scripts/build-toolchain
 sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/prepare-chroot
 sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/build-chroot-temp
-bash scripts/build-base
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/build-base
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/finalize-base
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/make-boot-disk
 bash scripts/build-blfs-base
 bash scripts/build-desktop
+```
+
+`finalize-base` prepara a rootfs para boot de terminal: `fstab` placeholder,
+hostname, locale, timezone, teclado, `systemd` em modo multi-user, `getty` no
+TTY1 e usuario de teste `kalyx` com senha `kalyx`.
+
+`make-boot-disk` gera uma imagem raw UEFI em:
+
+```text
+~/kalyx-work/iso/kalyx-0.1.0-terminal-x86_64.img
+```
+
+Ela contem uma ESP FAT32, uma raiz ext4, GRUB UEFI removivel e um `grub.cfg`
+apontando para o kernel da Kalyx. Essa imagem e o primeiro teste de boot real
+em terminal.
+
+Se `finalize-base` avisar que o kernel antigo nao tem suporte de disco embutido,
+recompile apenas a receita do kernel:
+
+```bash
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/chroot-build-recipe recipes/base/linux-kernel.recipe
 ```
 
 Depois que o rootfs tiver kernel, systemd, BusyBox para initramfs e XFCE:
@@ -104,7 +127,8 @@ bash scripts/prepare-live-config
 bash scripts/build-toolchain
 sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/prepare-chroot
 sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/build-chroot-temp
-bash scripts/build-base
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/build-base
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/finalize-base
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/make-boot-disk
 ```
-
 

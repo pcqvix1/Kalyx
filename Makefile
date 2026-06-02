@@ -1,6 +1,6 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: help host-check fetch-sources fetch-blfs-sources prepare-rootfs prepare-chroot prepare-desktop-config prepare-live-config mount-rootfs umount-rootfs enter-chroot build-live-initramfs build-toolchain build-chroot-temp build-base build-blfs-base build-desktop make-iso
+.PHONY: help host-check fetch-sources fetch-blfs-sources prepare-rootfs prepare-chroot prepare-desktop-config prepare-live-config mount-rootfs umount-rootfs enter-chroot finalize-base make-boot-disk build-live-initramfs build-toolchain build-chroot-temp build-base build-blfs-base build-desktop make-iso
 
 help:
 	@printf '%s\n' \
@@ -15,6 +15,8 @@ help:
 	  '  make mount-rootfs     Mount pseudo-filesystems for chroot' \
 	  '  make umount-rootfs    Unmount pseudo-filesystems' \
 	  '  make enter-chroot     Enter the Kalyx rootfs chroot' \
+	  '  make finalize-base    Finalize base rootfs for terminal boot' \
+	  '  make make-boot-disk   Create a raw UEFI terminal boot disk image' \
 	  '  make build-live-initramfs Build the live squashfs initramfs' \
 	  '  make build-toolchain  Run toolchain recipe phase' \
 	  '  make build-chroot-temp Run temporary chroot tools phase' \
@@ -49,6 +51,12 @@ umount-rootfs:
 
 enter-chroot:
 	bash scripts/enter-chroot
+
+finalize-base:
+	bash scripts/finalize-base
+
+make-boot-disk:
+	bash scripts/make-boot-disk
 
 build-live-initramfs:
 	bash scripts/build-live-initramfs

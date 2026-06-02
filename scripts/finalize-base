@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+require_linux
+require_cmd chroot
+ensure_linux_build_path "$KALYX_WORKDIR"
+ensure_dirs
+
+[[ "$(id -u)" -eq 0 ]] || die "Rode como root: sudo KALYX_WORKDIR=... bash scripts/finalize-base"
+[[ -d "$KALYX_ROOTFS/usr" ]] || die "Rootfs nao preparada: $KALYX_ROOTFS"
+
+required_stamps=(systemd dbus util-linux e2fsprogs linux-kernel busybox-initramfs)
+for stamp in "${required_stamps[@]}"; do
+  [[ -f "$KALYX_ROOTFS/var/lib/kalyx/lfs-stamps/$stamp" ]] || \
+    die "Build base incompleto: stamp ausente $stamp"
+done
+
+kernel="$(find "$KALYX_ROOTFS/boot" -maxdepth 1 -type f -name 'vmlinuz-*' | sort | tail -n 1 || true)"
+[[ -n "$kernel" ]] || die "Kernel nao encontrado em $KALYX_ROOTFS/boot"
+[[ -e "$KALYX_ROOTFS/usr/lib/systemd/systemd" ]] || die "systemd nao encontrado em /usr/lib/systemd/systemd"
+
+info "Finalizando rootfs base para boot terminal"
+
+bash "$KALYX_REPO/scripts/mount-rootfs"
+
+mkdir -p \
+  "$KALYX_ROOTFS"/{boot/efi,dev,proc,sys,run,tmp} \
+  "$KALYX_ROOTFS"/etc/{modprobe.d,systemd/system,systemd/system/getty@tty1.service.d,systemd/network} \
+  "$KALYX_ROOTFS"/var/log
+
+chmod 1777 "$KALYX_ROOTFS/tmp"
+
+ln -sf ../lib/systemd/systemd "$KALYX_ROOTFS/usr/sbin/init"
+ln -sf /proc/self/mounts "$KALYX_ROOTFS/etc/mtab"
+
+cat > "$KALYX_ROOTFS/etc/fstab" <<'FSTAB'
+# Begin /etc/fstab
+#
+# This placeholder is overwritten by scripts/make-boot-disk with real UUIDs.
+#
+# file system  mount-point  type   options  dump  fsck
+LABEL=KALYX_ROOT /           ext4   defaults 1     1
+LABEL=KALYX_EFI  /boot/efi   vfat   defaults 0     1
+
+# End /etc/fstab
+FSTAB
+
+cat > "$KALYX_ROOTFS/etc/hostname" <<HOSTNAME
+$KALYX_DEFAULT_HOSTNAME
+HOSTNAME
+
+cat > "$KALYX_ROOTFS/etc/hosts" <<HOSTS
+127.0.0.1  localhost $KALYX_DEFAULT_HOSTNAME
+::1        localhost
+HOSTS
+
+cat > "$KALYX_ROOTFS/etc/locale.conf" <<LOCALE
+LANG=$KALYX_LOCALE
+LOCALE
+
+cat > "$KALYX_ROOTFS/etc/vconsole.conf" <<VCONSOLE
+KEYMAP=$KALYX_KEYMAP
+VCONSOLE
+
+if [[ -f "$KALYX_ROOTFS/usr/share/zoneinfo/$KALYX_TIMEZONE" ]]; then
+  ln -sf "../usr/share/zoneinfo/$KALYX_TIMEZONE" "$KALYX_ROOTFS/etc/localtime"
+fi
+
+kernel_config="$(find "$KALYX_ROOTFS/boot" -maxdepth 1 -type f -name 'config-*' | sort | tail -n 1 || true)"
+if [[ -n "$kernel_config" ]]; then
+  for required in CONFIG_EXT4_FS=y CONFIG_EFI_PARTITION=y CONFIG_DEVTMPFS=y CONFIG_DEVTMPFS_MOUNT=y; do
+    grep -q "^$required\$" "$kernel_config" || warn "Kernel pode nao bootar sem initramfs: $required ausente em ${kernel_config##*/}"
+  done
+  if ! grep -q '^CONFIG_SATA_AHCI=y$' "$kernel_config" && ! grep -q '^CONFIG_VIRTIO_BLK=y$' "$kernel_config"; then
+    warn "Kernel pode nao encontrar disco de boot: SATA_AHCI ou VIRTIO_BLK embutido nao detectado."
+    warn "Se o boot falhar montando /, force rebuild de linux-kernel com a receita atualizada."
+  fi
+fi
+
+cat > "$KALYX_ROOTFS/etc/adjtime" <<'ADJTIME'
+0.0 0 0.0
+0
+UTC
+ADJTIME
+
+cat > "$KALYX_ROOTFS/etc/issue" <<'ISSUE'
+Kalyx terminal test build
+
+Login de teste: kalyx
+Senha de teste: kalyx
+
+ISSUE
+
+cat > "$KALYX_ROOTFS/etc/systemd/system/getty@tty1.service.d/noclear.conf" <<'NOCLEAR'
+[Service]
+TTYVTDisallocate=no
+NOCLEAR
+
+cat > "$KALYX_ROOTFS/etc/systemd/network/10-dhcp.network" <<'NETWORK'
+[Match]
+Name=en* eth*
+
+[Network]
+DHCP=ipv4
+
+[DHCPv4]
+UseDomains=true
+NETWORK
+
+ln -sf ../run/systemd/resolve/stub-resolv.conf "$KALYX_ROOTFS/etc/resolv.conf"
+
+if ! grep -q '^kalyx:' "$KALYX_ROOTFS/etc/passwd"; then
+  chroot "$KALYX_ROOTFS" /usr/sbin/useradd -m -G users,wheel -s /bin/bash kalyx
+fi
+printf 'kalyx:kalyx\n' | chroot "$KALYX_ROOTFS" /usr/sbin/chpasswd
+
+chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl set-default multi-user.target'
+chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl enable getty@tty1.service'
+chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl enable systemd-networkd.service systemd-resolved.service systemd-timesyncd.service' || \
+  warn "Alguns servicos de rede/tempo ainda nao puderam ser habilitados."
+
+info "Rootfs base finalizada."
+info "Kernel detectado: ${kernel##*/}"
+info "Usuario de teste do disco terminal: kalyx / kalyx"

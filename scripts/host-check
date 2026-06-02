@@ -26,7 +26,7 @@ required=(
 
 optional=(
   wget curl git rsync zstd dialog whiptail sgdisk parted mkfs.ext4 mkfs.vfat
-  xorriso grub-mkrescue mksquashfs cpio
+  losetup partprobe blkid chroot umount xorriso grub-mkrescue mksquashfs cpio
 )
 
 require_cmd "${required[@]}"

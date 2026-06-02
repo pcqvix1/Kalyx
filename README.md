@@ -13,6 +13,8 @@ Este repositorio contem a fundacao do projeto:
 - download das fontes oficiais do BLFS systemd stable;
 - formato inicial de receitas e pacotes `.tar.zst`;
 - manifestos de ordem para LFS, BLFS minimo e XFCE reduzido;
+- finalizacao da base LFS para boot terminal;
+- geracao de imagem raw UEFI de teste terminal;
 - instalador TUI com usuario/senha/timezone;
 - configuracao XFCE reduzida com data, hora e botao Config;
 - esqueleto de initramfs live e montagem de ISO.
@@ -50,6 +52,8 @@ bash scripts/fetch-blfs-sources
 bash scripts/prepare-rootfs
 bash scripts/prepare-desktop-config
 bash scripts/prepare-live-config
+sudo KALYX_WORKDIR=$HOME/kalyx-work bash scripts/finalize-base
+sudo KALYX_WORKDIR=$HOME/kalyx-work bash scripts/make-boot-disk
 ```
 
 ## Layout

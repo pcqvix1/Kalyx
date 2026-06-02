@@ -40,10 +40,15 @@ build_recipe() {
     scripts/config --enable X86_X2APIC
     scripts/config --enable IOMMU_SUPPORT
     scripts/config --enable IRQ_REMAP
+    scripts/config --enable PARTITION_ADVANCED
+    scripts/config --enable EFI_PARTITION
+    scripts/config --enable BLK_DEV_LOOP
     scripts/config --enable BLK_DEV_SD
     scripts/config --enable SCSI
     scripts/config --enable ATA
     scripts/config --enable ATA_PIIX
+    scripts/config --enable SATA_AHCI
+    scripts/config --enable AHCI
     scripts/config --enable VIRTIO
     scripts/config --enable VIRTIO_PCI
     scripts/config --enable VIRTIO_BLK
@@ -51,6 +56,10 @@ build_recipe() {
     scripts/config --enable E1000
     scripts/config --enable E1000E
     scripts/config --enable EXT4_FS
+    scripts/config --enable VFAT_FS
+    scripts/config --enable NLS_CODEPAGE_437
+    scripts/config --enable NLS_ISO8859_1
+    scripts/config --enable NLS_UTF8
     scripts/config --enable ISO9660_FS
     scripts/config --enable SQUASHFS
     scripts/config --enable OVERLAY_FS
@@ -79,4 +88,3 @@ install uhci_hcd /sbin/modprobe ehci_hcd ; /sbin/modprobe -i uhci_hcd ; true
 # End /etc/modprobe.d/usb.conf
 USB
 }
-

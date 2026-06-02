@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 
 require_linux
-require_cmd md5sum
+require_cmd md5sum sha256sum
 ensure_linux_build_path "$KALYX_WORKDIR"
 ensure_dirs
 
@@ -34,5 +34,15 @@ info "Verificando md5sums oficiais"
   md5sum -c md5sums
 )
 
-info "Fontes LFS prontas em $KALYX_SOURCES"
+info "Baixando fontes extras da Kalyx"
+extra_sources=(
+  "busybox-1.37.0.tar.bz2|https://busybox.net/downloads/busybox-1.37.0.tar.bz2|3311dff32e746499f4df0d5df04d7eb396382d7e108bb9250e7b519b837043a4"
+)
 
+for item in "${extra_sources[@]}"; do
+  IFS='|' read -r filename url sha256 <<<"$item"
+  download_to "$url" "$KALYX_SOURCES/$filename"
+  printf '%s  %s\n' "$sha256" "$KALYX_SOURCES/$filename" | sha256sum -c -
+done
+
+info "Fontes LFS prontas em $KALYX_SOURCES"

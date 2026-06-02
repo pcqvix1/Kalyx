@@ -69,9 +69,13 @@ rsync -aHAX --numeric-ids \
   --exclude='/sys/*' \
   --exclude='/run/*' \
   --exclude='/tmp/*' \
+  --exclude='/sources/*' \
+  --exclude='/var/cache/*' \
+  --exclude='/var/log/*' \
   "$KALYX_ROOTFS"/ "$mnt"/
 
 mkdir -p "$mnt"/{dev,proc,sys,run,tmp,boot/efi}
+mkdir -p "$mnt"/{sources,var/cache,var/log}
 chmod 1777 "$mnt/tmp"
 
 root_uuid="$(blkid -s UUID -o value "$root")"

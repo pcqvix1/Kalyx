@@ -14,7 +14,39 @@ if ! command -v wget >/dev/null 2>&1 && ! command -v curl >/dev/null 2>&1; then
   die "Instale wget ou curl para baixar fontes."
 fi
 
+extra_sources=(
+  "busybox-1.37.0.tar.bz2|https://busybox.net/downloads/busybox-1.37.0.tar.bz2|3311dff32e746499f4df0d5df04d7eb396382d7e108bb9250e7b519b837043a4"
+)
+
+check_manifest_sources() {
+  local phase manifest entry recipe archive missing=0
+
+  info "Conferindo fontes usadas pelos manifestos LFS da Kalyx"
+  for phase in toolchain chroot-temp base; do
+    manifest="$KALYX_REPO/recipes/$phase/manifest"
+    [[ -f "$manifest" ]] || continue
+
+    while IFS= read -r entry; do
+      [[ -z "$entry" || "$entry" == \#* ]] && continue
+      recipe="$KALYX_REPO/recipes/$phase/$entry.recipe"
+      [[ -f "$recipe" ]] || continue
+
+      archive="$(sed -n 's/^source_archive="\([^"]*\)"/\1/p' "$recipe" | head -n 1)"
+      [[ -n "$archive" ]] || continue
+
+      if [[ ! -f "$KALYX_SOURCES/$archive" && ! -f "$KALYX_SOURCES/blfs/$archive" ]]; then
+        warn "Fonte ausente para $phase/$entry: $archive"
+        missing=1
+      fi
+    done < "$manifest"
+  done
+
+  [[ "$missing" -eq 0 ]] || die "Algumas fontes das receitas ainda estao ausentes."
+}
+
 info "Baixando listas oficiais do LFS em $KALYX_SOURCES"
+info "Workdir: $KALYX_WORKDIR"
+info "Sources: $KALYX_SOURCES"
 download_to "$KALYX_LFS_DOWNLOAD_BASE/wget-list" "$KALYX_SOURCES/wget-list"
 download_to "$KALYX_LFS_DOWNLOAD_BASE/md5sums" "$KALYX_SOURCES/md5sums"
 
@@ -28,21 +60,20 @@ else
   done < "$KALYX_SOURCES/wget-list"
 fi
 
+info "Baixando fontes extras da Kalyx"
+for item in "${extra_sources[@]}"; do
+  IFS='|' read -r filename url sha256 <<<"$item"
+  info "Fonte extra: $filename"
+  download_to "$url" "$KALYX_SOURCES/$filename"
+  printf '%s  %s\n' "$sha256" "$KALYX_SOURCES/$filename" | sha256sum -c -
+done
+
 info "Verificando md5sums oficiais"
 (
   cd "$KALYX_SOURCES"
   md5sum -c md5sums
 )
 
-info "Baixando fontes extras da Kalyx"
-extra_sources=(
-  "busybox-1.37.0.tar.bz2|https://busybox.net/downloads/busybox-1.37.0.tar.bz2|3311dff32e746499f4df0d5df04d7eb396382d7e108bb9250e7b519b837043a4"
-)
-
-for item in "${extra_sources[@]}"; do
-  IFS='|' read -r filename url sha256 <<<"$item"
-  download_to "$url" "$KALYX_SOURCES/$filename"
-  printf '%s  %s\n' "$sha256" "$KALYX_SOURCES/$filename" | sha256sum -c -
-done
+check_manifest_sources
 
 info "Fontes LFS prontas em $KALYX_SOURCES"

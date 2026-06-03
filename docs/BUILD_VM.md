@@ -98,9 +98,9 @@ TTY1 e usuario de teste `kalyx` com senha `kalyx`.
 ~/kalyx-work/iso/kalyx-0.1.0-terminal-x86_64.img
 ```
 
-Ela contem uma ESP FAT32, uma raiz ext4, GRUB UEFI removivel e um `grub.cfg`
-apontando para o kernel da Kalyx. Essa imagem e o primeiro teste de boot real
-em terminal.
+Ela contem uma ESP FAT32, uma raiz ext4, um initramfs de boot, GRUB UEFI
+removivel e um `grub.cfg` apontando para o kernel da Kalyx. Essa imagem e o
+primeiro teste de boot real em terminal.
 
 Se `finalize-base` avisar que o kernel antigo nao tem suporte de disco embutido,
 recompile apenas a receita do kernel:

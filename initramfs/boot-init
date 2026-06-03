@@ -1,0 +1,58 @@
+#!/bin/busybox sh
+
+set -eu
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export PATH
+
+panic() {
+  echo "Kalyx boot initramfs: $*" >&2
+  echo "Abrindo shell de emergencia." >&2
+  exec sh
+}
+
+mkdir -p /proc /sys /dev /run /newroot
+mount -t proc proc /proc || panic "falha ao montar /proc"
+mount -t sysfs sysfs /sys || panic "falha ao montar /sys"
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || mount -t tmpfs devtmpfs /dev || panic "falha ao montar /dev"
+
+cmdline="$(cat /proc/cmdline)"
+root_arg=""
+
+for arg in $cmdline; do
+  case "$arg" in
+    root=*) root_arg="${arg#root=}" ;;
+  esac
+done
+
+[ -n "$root_arg" ] || panic "parametro root= ausente"
+
+for module in virtio_pci virtio_blk ahci ata_piix sd_mod ext4 vfat nls_cp437 nls_iso8859_1; do
+  modprobe "$module" 2>/dev/null || true
+done
+
+tries=0
+root_dev=""
+while [ "$tries" -lt 30 ]; do
+  case "$root_arg" in
+    UUID=*) root_dev="$(blkid -U "${root_arg#UUID=}" 2>/dev/null || true)" ;;
+    LABEL=*) root_dev="$(blkid -L "${root_arg#LABEL=}" 2>/dev/null || true)" ;;
+    /dev/*) root_dev="$root_arg" ;;
+    *) root_dev="" ;;
+  esac
+
+  [ -n "$root_dev" ] && [ -b "$root_dev" ] && break
+  sleep 1
+  tries=$((tries + 1))
+done
+
+[ -n "$root_dev" ] || panic "nao encontrei root device: $root_arg"
+
+mount -o ro "$root_dev" /newroot || panic "falha ao montar raiz $root_dev"
+
+mkdir -p /newroot/{proc,sys,dev,run}
+mount --move /proc /newroot/proc
+mount --move /sys /newroot/sys
+mount --move /dev /newroot/dev
+
+exec switch_root /newroot /sbin/init

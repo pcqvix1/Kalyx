@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 
 require_linux
-require_cmd sgdisk losetup partprobe mkfs.vfat mkfs.ext4 blkid rsync mount umount chroot
+require_cmd sgdisk losetup partprobe mkfs.vfat mkfs.ext4 blkid rsync mount umount chroot cpio gzip
 ensure_linux_build_path "$KALYX_WORKDIR"
 ensure_dirs
 
@@ -34,9 +34,12 @@ cleanup() {
 trap cleanup EXIT
 
 bash "$KALYX_REPO/scripts/finalize-base"
+bash "$KALYX_REPO/scripts/build-boot-initramfs"
 
 kernel="$(find "$KALYX_ROOTFS/boot" -maxdepth 1 -type f -name 'vmlinuz-*' | sort | tail -n 1 || true)"
+initramfs="${KALYX_BOOT_INITRAMFS:-$KALYX_ISO/initramfs-boot.img}"
 [[ -n "$kernel" ]] || die "Kernel nao encontrado em $KALYX_ROOTFS/boot"
+[[ -f "$initramfs" ]] || die "Initramfs de boot nao encontrado: $initramfs"
 
 mkdir -p "$(dirname "$image")" "$mnt"
 rm -f "$image"
@@ -77,6 +80,7 @@ rsync -aHAX --numeric-ids \
 mkdir -p "$mnt"/{dev,proc,sys,run,tmp,boot/efi}
 mkdir -p "$mnt"/{sources,var/cache,var/log}
 chmod 1777 "$mnt/tmp"
+install -m 0644 "$initramfs" "$mnt/boot/initramfs-boot.img"
 
 root_uuid="$(blkid -s UUID -o value "$root")"
 esp_uuid="$(blkid -s UUID -o value "$esp")"
@@ -104,10 +108,12 @@ set gfxpayload=1024x768x32
 
 menuentry "Kalyx Terminal" {
     linux /boot/${kernel##*/} root=UUID=$root_uuid ro systemd.unit=multi-user.target
+    initrd /boot/initramfs-boot.img
 }
 
 menuentry "Kalyx Terminal (debug)" {
     linux /boot/${kernel##*/} root=UUID=$root_uuid ro systemd.unit=multi-user.target systemd.log_level=debug
+    initrd /boot/initramfs-boot.img
 }
 # End /boot/grub/grub.cfg
 GRUB

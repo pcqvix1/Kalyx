@@ -11,18 +11,19 @@ ensure_linux_build_path "$KALYX_WORKDIR"
 ensure_dirs
 
 busybox="${KALYX_BUSYBOX:-$KALYX_ROOTFS/bin/busybox}"
-out="${KALYX_INITRAMFS:-$KALYX_ISO/initramfs-live.img}"
-stage="$KALYX_BUILD/initramfs-live"
+out="${KALYX_BOOT_INITRAMFS:-$KALYX_ISO/initramfs-boot.img}"
+stage="$KALYX_BUILD/initramfs-boot"
 
-[[ -x "$busybox" ]] || die "BusyBox nao encontrado/executavel em $busybox. Adicione BusyBox ao rootfs ou defina KALYX_BUSYBOX."
+[[ -x "$busybox" ]] || die "BusyBox nao encontrado/executavel em $busybox."
+[[ -d "$KALYX_ROOTFS/lib/modules" ]] || warn "Diretorio de modulos ausente: $KALYX_ROOTFS/lib/modules"
 
 rm -rf "$stage"
-mkdir -p "$stage"/{bin,sbin,proc,sys,dev,run,newroot,usr}
+mkdir -p "$stage"/{bin,sbin,proc,sys,dev,run,newroot,lib,usr}
 
 install -m 0755 "$busybox" "$stage/bin/busybox"
-install -m 0755 "$KALYX_REPO/initramfs/live-init" "$stage/init"
+install -m 0755 "$KALYX_REPO/initramfs/boot-init" "$stage/init"
 
-applets="sh mount umount mkdir cat echo sleep switch_root blkid modprobe losetup"
+applets="sh mount umount mkdir cat echo sleep switch_root blkid modprobe"
 for applet in $applets; do
   ln -s busybox "$stage/bin/$applet"
 done
@@ -30,10 +31,15 @@ ln -s ../bin/busybox "$stage/sbin/init"
 ln -s ../bin "$stage/usr/bin"
 ln -s ../sbin "$stage/usr/sbin"
 
+if [[ -d "$KALYX_ROOTFS/lib/modules" ]]; then
+  mkdir -p "$stage/lib/modules"
+  cp -a "$KALYX_ROOTFS/lib/modules/." "$stage/lib/modules/"
+fi
+
 mkdir -p "$(dirname "$out")"
 (
   cd "$stage"
   find . -print0 | cpio --null -o --format=newc | gzip -9 > "$out"
 )
 
-info "Initramfs live criado: $out"
+info "Initramfs de boot criado: $out"

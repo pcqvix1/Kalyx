@@ -14,6 +14,7 @@
 - Finalizacao da base para boot terminal.
 - Geracao de imagem raw UEFI de teste terminal.
 - Initramfs live baseado em BusyBox, squashfs e overlayfs.
+- Initramfs de boot terminal baseado em BusyBox, UUID de root e modulos do kernel.
 - Manifestos de ordem para toolchain, base, BLFS minimo e XFCE.
 - Executor `scripts/lfs-build-recipe` para receitas LFS.
 - Preparacao de chroot conforme capitulo 7 do LFS.

@@ -7,6 +7,11 @@ export PATH
 
 panic() {
   echo "Kalyx boot initramfs: $*" >&2
+  echo "cmdline: $(cat /proc/cmdline 2>/dev/null || true)" >&2
+  echo "partitions:" >&2
+  cat /proc/partitions >&2 2>/dev/null || true
+  echo "devices:" >&2
+  ls -l /dev >&2 2>/dev/null || true
   echo "Abrindo shell de emergencia." >&2
   exec sh
 }
@@ -15,6 +20,7 @@ mkdir -p /proc /sys /dev /run /newroot
 mount -t proc proc /proc || panic "falha ao montar /proc"
 mount -t sysfs sysfs /sys || panic "falha ao montar /sys"
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || mount -t tmpfs devtmpfs /dev || panic "falha ao montar /dev"
+mdev -s 2>/dev/null || true
 
 cmdline="$(cat /proc/cmdline)"
 root_arg=""
@@ -27,13 +33,15 @@ done
 
 [ -n "$root_arg" ] || panic "parametro root= ausente"
 
-for module in virtio_pci virtio_blk ahci ata_piix sd_mod ext4 vfat nls_cp437 nls_iso8859_1; do
+for module in virtio_pci virtio_blk ahci libahci ata_piix sd_mod scsi_mod ext4 vfat nls_cp437 nls_iso8859_1; do
   modprobe "$module" 2>/dev/null || true
 done
 
 tries=0
 root_dev=""
-while [ "$tries" -lt 30 ]; do
+while [ "$tries" -lt 60 ]; do
+  mdev -s 2>/dev/null || true
+
   case "$root_arg" in
     UUID=*) root_dev="$(blkid -U "${root_arg#UUID=}" 2>/dev/null || true)" ;;
     LABEL=*) root_dev="$(blkid -L "${root_arg#LABEL=}" 2>/dev/null || true)" ;;
@@ -41,14 +49,28 @@ while [ "$tries" -lt 30 ]; do
     *) root_dev="" ;;
   esac
 
+  [ -z "$root_dev" ] && root_dev="$(blkid -L KALYX_ROOT 2>/dev/null || true)"
   [ -n "$root_dev" ] && [ -b "$root_dev" ] && break
   sleep 1
   tries=$((tries + 1))
 done
 
+if [ -z "$root_dev" ]; then
+  for candidate in /dev/sd*[0-9] /dev/vd*[0-9] /dev/xvd*[0-9] /dev/nvme*n*p[0-9]; do
+    [ -b "$candidate" ] || continue
+    if mount -o ro "$candidate" /newroot 2>/dev/null; then
+      if [ -x /newroot/sbin/init ] || [ -x /newroot/usr/lib/systemd/systemd ]; then
+        root_dev="$candidate"
+        break
+      fi
+      umount /newroot 2>/dev/null || true
+    fi
+  done
+fi
+
 [ -n "$root_dev" ] || panic "nao encontrei root device: $root_arg"
 
-mount -o ro "$root_dev" /newroot || panic "falha ao montar raiz $root_dev"
+mountpoint -q /newroot 2>/dev/null || mount -o ro "$root_dev" /newroot || panic "falha ao montar raiz $root_dev"
 
 mkdir -p /newroot/{proc,sys,dev,run}
 mount --move /proc /newroot/proc

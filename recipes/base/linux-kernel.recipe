@@ -45,10 +45,14 @@ build_recipe() {
     scripts/config --enable BLK_DEV_LOOP
     scripts/config --enable BLK_DEV_SD
     scripts/config --enable SCSI
+    scripts/config --enable SCSI_MOD
+    scripts/config --enable SCSI_COMMON
     scripts/config --enable ATA
     scripts/config --enable ATA_PIIX
     scripts/config --enable SATA_AHCI
     scripts/config --enable AHCI
+    scripts/config --enable IDE
+    scripts/config --enable BLK_DEV_IDE
     scripts/config --enable VIRTIO
     scripts/config --enable VIRTIO_PCI
     scripts/config --enable VIRTIO_BLK

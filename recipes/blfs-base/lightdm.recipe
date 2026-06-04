@@ -1,0 +1,137 @@
+pkg_name="lightdm"
+pkg_version="1.32.0"
+source_archive="lightdm-1.32.0.tar.xz"
+source_dir="lightdm-1.32.0"
+extra_archives=(
+  "lightdm-gtk-greeter-2.0.9.tar.gz"
+  "blfs-systemd-units-20251204.tar.xz"
+)
+
+build_recipe() {
+  if ! getent group lightdm >/dev/null 2>&1; then
+    groupadd -g 65 lightdm
+  fi
+
+  if ! getent passwd lightdm >/dev/null 2>&1; then
+    useradd -c "Lightdm Daemon" \
+            -d /var/lib/lightdm \
+            -u 65 -g lightdm    \
+            -s /bin/false lightdm
+  fi
+
+  ./configure --prefix=/usr                         \
+              --libexecdir=/usr/lib/lightdm         \
+              --localstatedir=/var                  \
+              --sbindir=/usr/bin                    \
+              --sysconfdir=/etc                     \
+              --disable-static                      \
+              --disable-tests                       \
+              --with-greeter-user=lightdm           \
+              --with-greeter-session=lightdm-gtk-greeter \
+              --docdir=/usr/share/doc/lightdm-1.32.0
+  make
+  make install
+
+  cp tests/src/lightdm-session /usr/bin
+  sed -i '1 s/sh/bash --login/' /usr/bin/lightdm-session
+  rm -rf /etc/init
+
+  install -v -dm755 -o lightdm -g lightdm /var/lib/lightdm
+  install -v -dm755 -o lightdm -g lightdm /var/lib/lightdm-data
+  install -v -dm755 -o lightdm -g lightdm /var/cache/lightdm
+  install -v -dm770 -o lightdm -g lightdm /var/log/lightdm
+
+  cd ..
+  tar -xf /sources/lightdm-gtk-greeter-2.0.9.tar.gz
+  cd lightdm-gtk-greeter-2.0.9
+
+  ./configure --prefix=/usr                         \
+              --libexecdir=/usr/lib/lightdm         \
+              --sbindir=/usr/bin                    \
+              --sysconfdir=/etc                     \
+              --with-libxklavier                    \
+              --enable-kill-on-sigterm              \
+              --disable-libido                      \
+              --disable-libindicator                \
+              --disable-static                      \
+              --disable-maintainer-mode             \
+              --docdir=/usr/share/doc/lightdm-gtk-greeter-2.0.9
+  make
+  make install
+
+  cd ..
+  tar -xf /sources/blfs-systemd-units-20251204.tar.xz
+  make -C blfs-systemd-units-20251204 install-lightdm
+
+  mkdir -p /etc/lightdm/lightdm.conf.d /etc/pam.d /etc/systemd/system
+
+  cat > /etc/lightdm/lightdm.conf.d/10-kalyx.conf <<'EOF'
+[LightDM]
+run-directory=/run/lightdm
+
+[Seat:*]
+greeter-session=lightdm-gtk-greeter
+user-session=xfce
+allow-guest=false
+
+[XDMCPServer]
+enabled=false
+
+[VNCServer]
+enabled=false
+EOF
+
+  cat > /etc/lightdm/lightdm-gtk-greeter.conf <<'EOF'
+[greeter]
+theme-name=Adwaita
+icon-theme-name=hicolor
+font-name=Noto Sans 10
+show-indicators=~host;~spacer;~clock;~power
+clock-format=%A, %d/%m/%Y %H:%M
+EOF
+
+  cat > /etc/lightdm/users.conf <<'EOF'
+[UserList]
+minimum-uid=1000
+hidden-users=nobody nobody4 noaccess lightdm
+hidden-shells=/bin/false /usr/sbin/nologin /sbin/nologin
+EOF
+
+  cat > /etc/pam.d/lightdm <<'EOF'
+# Begin /etc/pam.d/lightdm
+
+auth     include system-auth
+account  include system-account
+password include system-password
+session  include system-session
+
+# End /etc/pam.d/lightdm
+EOF
+
+  cat > /etc/pam.d/lightdm-greeter <<'EOF'
+# Begin /etc/pam.d/lightdm-greeter
+
+auth     required pam_permit.so
+account  required pam_permit.so
+password required pam_deny.so
+session  required pam_unix.so
+session  optional pam_systemd.so
+
+# End /etc/pam.d/lightdm-greeter
+EOF
+
+  cat > /etc/pam.d/lightdm-autologin <<'EOF'
+# Begin /etc/pam.d/lightdm-autologin
+
+auth     required pam_permit.so
+account  include system-account
+password include system-password
+session  include system-session
+
+# End /etc/pam.d/lightdm-autologin
+EOF
+
+  if [[ -e /usr/lib/systemd/system/lightdm.service ]]; then
+    ln -sf /usr/lib/systemd/system/lightdm.service /etc/systemd/system/display-manager.service
+  fi
+}

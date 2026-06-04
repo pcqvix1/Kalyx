@@ -1,0 +1,10 @@
+pkg_name="xfdesktop"
+pkg_version="4.20.1"
+source_archive="xfdesktop-4.20.1.tar.bz2"
+source_dir="xfdesktop-4.20.1"
+
+build_recipe() {
+  ./configure --prefix=/usr
+  make
+  make install
+}

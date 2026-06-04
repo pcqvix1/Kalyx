@@ -1,0 +1,28 @@
+pkg_name="cmake"
+pkg_version="4.2.3"
+source_archive="cmake-4.2.3.tar.gz"
+source_dir="cmake-4.2.3"
+
+build_recipe() {
+  sed -i '/"lib64"/s/64//' Modules/GNUInstallDirs.cmake
+
+  ./bootstrap --prefix=/usr          \
+              --system-libs          \
+              --mandir=/share/man    \
+              --no-system-curl       \
+              --no-system-libarchive \
+              --no-system-libuv      \
+              --no-system-nghttp2    \
+              --no-system-jsoncpp    \
+              --no-system-cppdap     \
+              --no-system-librhash   \
+              --docdir=/share/doc/cmake-4.2.3
+
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    bin/ctest -j"$(nproc)" || true
+  fi
+
+  make install
+}

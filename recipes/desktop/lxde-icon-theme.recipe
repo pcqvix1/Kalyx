@@ -1,0 +1,13 @@
+pkg_name="lxde-icon-theme"
+pkg_version="0.5.1"
+source_archive="lxde-icon-theme-0.5.1.tar.xz"
+source_dir="lxde-icon-theme-0.5.1"
+
+build_recipe() {
+  ./configure --prefix=/usr
+  make install
+
+  if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -qf /usr/share/icons/nuoveXT2 || true
+  fi
+}

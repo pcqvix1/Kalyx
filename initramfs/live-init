@@ -14,6 +14,7 @@ mkdir -p /proc /sys /dev /run /newroot
 mount -t proc proc /proc || panic "falha ao montar /proc"
 mount -t sysfs sysfs /sys || panic "falha ao montar /sys"
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || mount -t tmpfs devtmpfs /dev || panic "falha ao montar /dev"
+mdev -s 2>/dev/null || true
 
 cmdline="$(cat /proc/cmdline)"
 iso_label="KALYX_LIVE"
@@ -26,9 +27,14 @@ done
 
 mkdir -p /run/live/medium /run/live/rootfs /run/live/overlay /run/live/work
 
+for module in virtio_pci virtio_blk ahci libahci ata_piix sr_mod cdrom sd_mod scsi_mod isofs iso9660 squashfs overlay loop vfat nls_cp437 nls_iso8859_1; do
+  modprobe "$module" 2>/dev/null || true
+done
+
 tries=0
 live_dev=""
 while [ "$tries" -lt 20 ]; do
+  mdev -s 2>/dev/null || true
   live_dev="$(blkid -L "$iso_label" 2>/dev/null || true)"
   [ -n "$live_dev" ] && break
   sleep 1
@@ -54,4 +60,3 @@ mount --move /sys /newroot/sys
 mount --move /dev /newroot/dev
 
 exec switch_root /newroot /sbin/init
-

@@ -1,0 +1,17 @@
+pkg_name="at-spi2-core"
+pkg_version="2.58.3"
+source_archive="at-spi2-core-2.58.3.tar.xz"
+source_dir="at-spi2-core-2.58.3"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup ..                  \
+        --prefix=/usr             \
+        --buildtype=release       \
+        -D gtk2_atk_adaptor=false
+
+  ninja
+  ninja install
+}

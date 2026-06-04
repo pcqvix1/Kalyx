@@ -1,0 +1,16 @@
+pkg_name="libgpg-error"
+pkg_version="1.59"
+source_archive="libgpg-error-1.59.tar.bz2"
+source_dir="libgpg-error-1.59"
+
+build_recipe() {
+  ./configure --prefix=/usr --sysconfdir=/etc
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+  install -v -m644 -D README /usr/share/doc/libgpg-error-1.59/README
+}

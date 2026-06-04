@@ -1,0 +1,9 @@
+pkg_name="hwdata"
+pkg_version="0.404"
+source_archive="hwdata-0.404.tar.gz"
+source_dir="hwdata-0.404"
+
+build_recipe() {
+  ./configure --prefix=/usr --disable-blacklist
+  make install
+}

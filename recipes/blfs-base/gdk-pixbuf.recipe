@@ -1,0 +1,29 @@
+pkg_name="gdk-pixbuf"
+pkg_version="2.44.5"
+source_archive="gdk-pixbuf-2.44.5.tar.xz"
+source_dir="gdk-pixbuf-2.44.5"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup ..                \
+        --prefix=/usr           \
+        --buildtype=release     \
+        -D png=disabled         \
+        -D gif=disabled         \
+        -D jpeg=disabled        \
+        -D tiff=disabled        \
+        -D thumbnailer=disabled \
+        --wrap-mode=nofallback  \
+        -D glycin=disabled
+
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    ninja test
+  fi
+
+  ninja install
+  gdk-pixbuf-query-loaders --update-cache
+}

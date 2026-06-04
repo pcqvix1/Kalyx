@@ -1,0 +1,10 @@
+pkg_name="libusb"
+pkg_version="1.0.29"
+source_archive="libusb-1.0.29.tar.bz2"
+source_dir="libusb-1.0.29"
+
+build_recipe() {
+  ./configure --prefix=/usr --disable-static
+  make
+  make install
+}

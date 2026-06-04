@@ -1,0 +1,18 @@
+pkg_name="pixman"
+pkg_version="0.46.4"
+source_archive="pixman-0.46.4.tar.gz"
+source_dir="pixman-0.46.4"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup --prefix=/usr --buildtype=release ..
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    ninja test
+  fi
+
+  ninja install
+}

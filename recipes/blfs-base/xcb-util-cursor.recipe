@@ -1,0 +1,13 @@
+pkg_name="xcb-util-cursor"
+pkg_version="0.1.6"
+source_archive="xcb-util-cursor-0.1.6.tar.xz"
+source_dir="xcb-util-cursor-0.1.6"
+
+build_recipe() {
+  ./configure --prefix=/usr        \
+              --sysconfdir=/etc    \
+              --localstatedir=/var \
+              --disable-static
+  make
+  make install
+}

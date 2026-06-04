@@ -1,0 +1,18 @@
+pkg_name="xf86-input-libinput"
+pkg_version="1.5.0"
+source_archive="xf86-input-libinput-1.5.0.tar.xz"
+source_dir="xf86-input-libinput-1.5.0"
+
+build_recipe() {
+  export XORG_PREFIX="/usr"
+  export XORG_CONFIG="--prefix=$XORG_PREFIX --sysconfdir=/etc --localstatedir=/var --disable-static"
+
+  ./configure $XORG_CONFIG
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}

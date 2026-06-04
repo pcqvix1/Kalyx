@@ -1,0 +1,23 @@
+pkg_name="upower"
+pkg_version="1.91.1"
+source_archive="upower-v1.91.1.tar.bz2"
+source_dir="upower-v1.91.1"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup ..            \
+        --prefix=/usr       \
+        --buildtype=release \
+        -D gtk-doc=false    \
+        -D man=false
+
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    LC_ALL=C ninja test || true
+  fi
+
+  ninja install
+}

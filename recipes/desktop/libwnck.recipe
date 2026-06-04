@@ -1,0 +1,13 @@
+pkg_name="libwnck"
+pkg_version="43.3"
+source_archive="libwnck-43.3.tar.xz"
+source_dir="libwnck-43.3"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup --prefix=/usr --buildtype=release ..
+  ninja
+  ninja install
+}

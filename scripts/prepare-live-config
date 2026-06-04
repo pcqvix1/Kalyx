@@ -43,6 +43,10 @@ $KALYX_LIVE_USER ALL=(ALL) NOPASSWD: /usr/sbin/kalyx-install
 SUDOERS
 chmod 0440 "$sudoers_file"
 
+if [[ "$(id -u)" -eq 0 && -x "$KALYX_ROOTFS/usr/sbin/visudo" ]]; then
+  chroot "$KALYX_ROOTFS" /usr/sbin/visudo -cf /etc/sudoers.d/90-kalyx-live
+fi
+
 cat > "$KALYX_ROOTFS/usr/local/bin/kalyx-open-installer" <<'LAUNCHER'
 #!/usr/bin/env sh
 set -eu
@@ -72,4 +76,28 @@ DESKTOP
 cp "$KALYX_ROOTFS/usr/share/applications/kalyx-install.desktop" "$KALYX_ROOTFS/etc/skel/Desktop/kalyx-install.desktop"
 chmod 0755 "$KALYX_ROOTFS/etc/skel/Desktop/kalyx-install.desktop"
 
-info "Config live preparada. O usuario '$KALYX_LIVE_USER' deve ser criado durante o build da imagem."
+if [[ "$(id -u)" -eq 0 && -x "$KALYX_ROOTFS/bin/bash" && -x "$KALYX_ROOTFS/usr/sbin/useradd" ]]; then
+  chroot "$KALYX_ROOTFS" /usr/sbin/groupadd -f users
+  chroot "$KALYX_ROOTFS" /usr/sbin/groupadd -f wheel
+
+  if ! chroot "$KALYX_ROOTFS" /usr/bin/getent passwd "$KALYX_LIVE_USER" >/dev/null 2>&1; then
+    chroot "$KALYX_ROOTFS" /usr/sbin/useradd -m -G users,wheel -s /bin/bash "$KALYX_LIVE_USER"
+  fi
+
+  printf '%s:%s\n' "$KALYX_LIVE_USER" "$KALYX_LIVE_USER" | chroot "$KALYX_ROOTFS" /usr/sbin/chpasswd
+
+  mkdir -p "$KALYX_ROOTFS/home/$KALYX_LIVE_USER"
+  for item in .dmrc .bash_profile .bashrc .config Desktop; do
+    if [[ -e "$KALYX_ROOTFS/etc/skel/$item" ]]; then
+      rm -rf "$KALYX_ROOTFS/home/$KALYX_LIVE_USER/$item"
+      cp -a "$KALYX_ROOTFS/etc/skel/$item" "$KALYX_ROOTFS/home/$KALYX_LIVE_USER/$item"
+    fi
+  done
+
+  chroot "$KALYX_ROOTFS" /usr/bin/chown -R "$KALYX_LIVE_USER:users" "/home/$KALYX_LIVE_USER"
+elif [[ -x "$KALYX_ROOTFS/bin/bash" ]]; then
+  warn "Usuario live '$KALYX_LIVE_USER' nao foi criado porque o script nao esta rodando como root."
+  warn "Antes da ISO final, rode: sudo KALYX_WORKDIR=$KALYX_WORKDIR bash scripts/prepare-live-config"
+fi
+
+info "Config live preparada para o usuario '$KALYX_LIVE_USER'."

@@ -1,0 +1,19 @@
+pkg_name="nspr"
+pkg_version="4.38.2"
+source_archive="nspr-4.38.2.tar.gz"
+source_dir="nspr-4.38.2"
+
+build_recipe() {
+  cd nspr
+
+  sed -i '/^RELEASE/s|^|#|' pr/src/misc/Makefile.in
+  sed -i 's|$(LIBRARY) ||'  config/rules.mk
+
+  ./configure --prefix=/usr   \
+              --with-mozilla  \
+              --with-pthreads \
+              $([ "$(uname -m)" = x86_64 ] && echo --enable-64bit)
+
+  make
+  make install
+}

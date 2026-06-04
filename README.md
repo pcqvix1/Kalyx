@@ -16,7 +16,9 @@ Este repositorio contem a fundacao do projeto:
 - finalizacao da base LFS para boot terminal;
 - geracao de imagem raw UEFI de teste terminal;
 - instalador TUI com usuario/senha/timezone;
+- `sudo` com PAM para administradores no grupo `wheel`;
 - configuracao XFCE reduzida com data, hora e botao Config;
+- finalizacao grafica com LightDM/XFCE;
 - esqueleto de initramfs live e montagem de ISO.
 
 O build pesado deve rodar dentro de uma VM Ubuntu no VirtualBox, com disco no
@@ -54,6 +56,9 @@ bash scripts/prepare-desktop-config
 bash scripts/prepare-live-config
 sudo KALYX_WORKDIR=$HOME/kalyx-work bash scripts/finalize-base
 sudo KALYX_WORKDIR=$HOME/kalyx-work bash scripts/make-boot-disk
+sudo KALYX_WORKDIR=$HOME/kalyx-work bash scripts/build-blfs-base
+sudo KALYX_WORKDIR=$HOME/kalyx-work bash scripts/build-desktop
+sudo KALYX_WORKDIR=$HOME/kalyx-work bash scripts/finalize-desktop
 ```
 
 ## Layout
@@ -78,7 +83,7 @@ scripts/       Automacao do build, pacotes, fontes e ISO
 
 ## Aviso honesto
 
-Os manifestos de LFS/BLFS ja definem a ordem, mas as receitas reais ainda
-precisam ser preenchidas uma por uma. Uma distro LFS completa nao nasce de um
-script vazio: cada pacote precisa de fonte, checksum, patches, comandos de
-build, install e teste.
+Os manifestos de LFS/BLFS ja definem a ordem e as receitas do caminho inicial
+ate LightDM/XFCE minimo estao no repositorio. A primeira compilacao real na VM
+ainda pode revelar ajustes finos por pacote; nesses casos, use o log indicado
+em `$HOME/kalyx-work/logs/`.

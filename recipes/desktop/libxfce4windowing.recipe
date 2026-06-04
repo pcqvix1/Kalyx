@@ -1,0 +1,13 @@
+pkg_name="libxfce4windowing"
+pkg_version="4.20.5"
+source_archive="libxfce4windowing-4.20.5.tar.bz2"
+source_dir="libxfce4windowing-4.20.5"
+
+build_recipe() {
+  ./configure --prefix=/usr     \
+              --sysconfdir=/etc \
+              --enable-x11      \
+              --disable-debug
+  make
+  make install
+}

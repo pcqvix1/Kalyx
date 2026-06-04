@@ -1,0 +1,13 @@
+pkg_name="startup-notification"
+pkg_version="0.12"
+source_archive="startup-notification-0.12.tar.gz"
+source_dir="startup-notification-0.12"
+
+build_recipe() {
+  ./configure --prefix=/usr --disable-static
+  make
+  make install
+
+  install -v -m644 -D doc/startup-notification.txt \
+      /usr/share/doc/startup-notification-0.12/startup-notification.txt
+}

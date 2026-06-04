@@ -1,0 +1,10 @@
+pkg_name="mtdev"
+pkg_version="1.1.7"
+source_archive="mtdev-1.1.7.tar.bz2"
+source_dir="mtdev-1.1.7"
+
+build_recipe() {
+  ./configure --prefix=/usr --disable-static
+  make
+  make install
+}

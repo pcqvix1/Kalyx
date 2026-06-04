@@ -1,0 +1,13 @@
+pkg_name="shared-mime-info"
+pkg_version="2.4"
+source_archive="shared-mime-info-2.4.tar.gz"
+source_dir="shared-mime-info-2.4"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup --prefix=/usr --buildtype=release -D update-mimedb=true ..
+  ninja
+  ninja install
+}

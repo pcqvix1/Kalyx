@@ -1,0 +1,10 @@
+pkg_name="libxfce4ui"
+pkg_version="4.20.2"
+source_archive="libxfce4ui-4.20.2.tar.bz2"
+source_dir="libxfce4ui-4.20.2"
+
+build_recipe() {
+  ./configure --prefix=/usr --sysconfdir=/etc
+  make
+  make install
+}

@@ -1,0 +1,22 @@
+pkg_name="simdutf"
+pkg_version="8.0.0"
+source_archive="simdutf-8.0.0.tar.gz"
+source_dir="simdutf-8.0.0"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  cmake -D CMAKE_INSTALL_PREFIX=/usr \
+        -D CMAKE_BUILD_TYPE=Release  \
+        -D BUILD_SHARED_LIBS=ON      \
+        -G Ninja ..
+
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    ninja test || true
+  fi
+
+  ninja install
+}

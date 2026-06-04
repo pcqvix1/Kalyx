@@ -1,0 +1,24 @@
+pkg_name="make-ca"
+pkg_version="1.16.1"
+source_archive="make-ca-1.16.1.tar.gz"
+source_dir="make-ca-1.16.1"
+
+build_recipe() {
+  sed '/mktemp/s/-t //' -i make-ca
+
+  make install
+  install -vdm755 /etc/ssl/local
+
+  cat > /etc/profile.d/pythoncerts.sh <<'EOF'
+# Begin /etc/profile.d/pythoncerts.sh
+
+export _PIP_STANDALONE_CERT=/etc/pki/tls/certs/ca-bundle.crt
+
+# End /etc/profile.d/pythoncerts.sh
+EOF
+
+  if [[ "${KALYX_GENERATE_CA:-0}" == "1" ]]; then
+    /usr/sbin/make-ca -g
+    systemctl enable update-pki.timer || true
+  fi
+}

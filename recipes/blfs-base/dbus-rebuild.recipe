@@ -1,0 +1,33 @@
+pkg_name="dbus-rebuild"
+pkg_version="1.16.2"
+source_archive="dbus-1.16.2.tar.xz"
+source_dir="dbus-1.16.2"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup --prefix=/usr          \
+              --buildtype=release    \
+              --wrap-mode=nofallback \
+              ..
+
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    ninja test
+  fi
+
+  ninja install
+
+  chown -v root:messagebus /usr/libexec/dbus-daemon-launch-helper
+  chmod -v      4750       /usr/libexec/dbus-daemon-launch-helper
+
+  if [[ -e /usr/share/doc/dbus ]]; then
+    rm -rf /usr/share/doc/dbus-1.16.2
+    mv -v /usr/share/doc/dbus{,-1.16.2}
+  fi
+
+  ln -sfv /etc/machine-id /var/lib/dbus/machine-id
+  systemctl enable dbus.service >/dev/null 2>&1 || true
+}

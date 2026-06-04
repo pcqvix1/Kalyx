@@ -13,6 +13,21 @@ ensure_dirs
 [[ -e "$KALYX_ROOTFS/usr/lib/systemd/systemd" || -e "$KALYX_ROOTFS/sbin/init" ]] || \
   die "Rootfs ainda nao parece bootavel: faltou systemd/init."
 
+if [[ "${KALYX_ALLOW_INCOMPLETE_ISO:-0}" != "1" ]]; then
+  [[ -x "$KALYX_ROOTFS/usr/bin/lightdm" ]] || \
+    die "ISO XFCE incompleta: LightDM ausente. Rode build-blfs-base/build-desktop."
+  [[ -x "$KALYX_ROOTFS/usr/bin/sudo" ]] || \
+    die "ISO instalavel incompleta: sudo ausente. Rode build-blfs-base com a receita sudo."
+  [[ -L "$KALYX_ROOTFS/etc/systemd/system/display-manager.service" || -e "$KALYX_ROOTFS/etc/systemd/system/display-manager.service" ]] || \
+    die "ISO XFCE incompleta: display-manager.service ausente. Rode finalize-desktop."
+  [[ -f "$KALYX_ROOTFS/etc/lightdm/lightdm.conf.d/50-kalyx-live.conf" ]] || \
+    die "ISO live sem autologin. Rode: sudo KALYX_WORKDIR=$KALYX_WORKDIR bash scripts/prepare-live-config"
+  [[ -f "$KALYX_ROOTFS/etc/sudoers.d/90-kalyx-live" ]] || \
+    die "ISO live sem permissao do instalador. Rode: sudo KALYX_WORKDIR=$KALYX_WORKDIR bash scripts/prepare-live-config"
+  grep -q "^$KALYX_LIVE_USER:" "$KALYX_ROOTFS/etc/passwd" || \
+    die "Usuario live '$KALYX_LIVE_USER' ausente. Rode prepare-live-config com sudo."
+fi
+
 require_cmd grub-mkrescue xorriso mksquashfs
 
 kernel="$(find "$KALYX_ROOTFS/boot" -maxdepth 1 -type f -name 'vmlinuz-*' | sort | tail -n 1 || true)"

@@ -16,6 +16,7 @@ info "Instalando interface XFCE reduzida da Kalyx em $KALYX_ROOTFS"
 skel_xfconf="$KALYX_ROOTFS/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml"
 mkdir -p \
   "$skel_xfconf" \
+  "$KALYX_ROOTFS/etc/skel/.config/autostart" \
   "$KALYX_ROOTFS/usr/local/bin" \
   "$KALYX_ROOTFS/usr/share/applications" \
   "$KALYX_ROOTFS/etc/polkit-1/rules.d"
@@ -24,12 +25,51 @@ install -m 0755 "$KALYX_REPO/desktop/kalyx-time-config" "$KALYX_ROOTFS/usr/local
 install -m 0644 "$KALYX_REPO/desktop/xfce4-panel.xml" "$skel_xfconf/xfce4-panel.xml"
 install -m 0644 "$KALYX_REPO/desktop/xfce4-desktop.xml" "$skel_xfconf/xfce4-desktop.xml"
 
+cat > "$KALYX_ROOTFS/etc/skel/.dmrc" <<'DMRC'
+[Desktop]
+Session=xfce
+DMRC
+
+cat > "$KALYX_ROOTFS/etc/skel/.config/autostart/kalyx-polkit-agent.desktop" <<'POLKIT_AGENT'
+[Desktop Entry]
+Type=Application
+Name=PolicyKit Agent
+Exec=/usr/libexec/polkit-gnome-authentication-agent-1
+OnlyShowIn=XFCE;
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+POLKIT_AGENT
+
+cat > "$KALYX_ROOTFS/usr/local/bin/kalyx-time-config-launcher" <<'LAUNCHER'
+#!/usr/bin/env sh
+set -eu
+
+if [ -n "${KALYX_TIME_CONFIG_IN_TERMINAL:-}" ]; then
+  exec /usr/local/bin/kalyx-time-config
+fi
+
+if [ -n "${DISPLAY:-}" ] && command -v zenity >/dev/null 2>&1; then
+  exec /usr/local/bin/kalyx-time-config
+fi
+
+if [ -n "${DISPLAY:-}" ] && command -v xfce4-terminal >/dev/null 2>&1; then
+  exec xfce4-terminal --title="Kalyx Data e Hora" --command="env KALYX_TIME_CONFIG_IN_TERMINAL=1 /usr/local/bin/kalyx-time-config"
+fi
+
+if [ -n "${DISPLAY:-}" ] && command -v xterm >/dev/null 2>&1; then
+  exec xterm -T "Kalyx Data e Hora" -e env KALYX_TIME_CONFIG_IN_TERMINAL=1 /usr/local/bin/kalyx-time-config
+fi
+
+exec /usr/local/bin/kalyx-time-config
+LAUNCHER
+chmod 0755 "$KALYX_ROOTFS/usr/local/bin/kalyx-time-config-launcher"
+
 cat > "$KALYX_ROOTFS/usr/share/applications/kalyx-time-config.desktop" <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=Config
 Comment=Configurar data, hora e timezone
-Exec=/usr/local/bin/kalyx-time-config
+Exec=/usr/local/bin/kalyx-time-config-launcher
 Terminal=false
 Categories=Settings;System;
 DESKTOP
@@ -46,4 +86,3 @@ polkit.addRule(function(action, subject) {
 POLKIT
 
 info "Interface reduzida pronta: painel com data/hora e botao Config."
-

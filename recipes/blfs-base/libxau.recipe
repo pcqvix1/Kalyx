@@ -1,0 +1,18 @@
+pkg_name="libxau"
+pkg_version="1.0.12"
+source_archive="libXau-1.0.12.tar.xz"
+source_dir="libXau-1.0.12"
+
+build_recipe() {
+  ./configure --prefix=/usr       \
+              --sysconfdir=/etc   \
+              --localstatedir=/var \
+              --disable-static
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}

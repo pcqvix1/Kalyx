@@ -12,6 +12,8 @@ build_recipe() {
     scripts/config --enable PSI
     scripts/config --disable PSI_DEFAULT_DISABLED
     scripts/config --enable CGROUPS
+    scripts/config --enable NAMESPACES
+    scripts/config --enable USER_NS
     scripts/config --enable MEMCG
     scripts/config --enable CGROUP_SCHED
     scripts/config --disable RT_GROUP_SCHED
@@ -30,8 +32,24 @@ build_recipe() {
     scripts/config --enable SYSFB_SIMPLEFB
     scripts/config --enable DRM
     scripts/config --enable DRM_SIMPLEDRM
+    scripts/config --module DRM_VBOXVIDEO
+    scripts/config --module DRM_VMWGFX
+    scripts/config --module DRM_BOCHS
     scripts/config --enable DRM_FBDEV_EMULATION
     scripts/config --enable FRAMEBUFFER_CONSOLE
+    scripts/config --enable INPUT
+    scripts/config --module INPUT_EVDEV
+    scripts/config --enable INPUT_KEYBOARD
+    scripts/config --enable KEYBOARD_ATKBD
+    scripts/config --enable INPUT_MOUSE
+    scripts/config --enable MOUSE_PS2
+    scripts/config --module INPUT_UINPUT
+    scripts/config --enable USB_SUPPORT
+    scripts/config --module USB
+    scripts/config --module USB_XHCI_HCD
+    scripts/config --module USB_EHCI_HCD
+    scripts/config --module USB_OHCI_HCD
+    scripts/config --module USB_UHCI_HCD
     scripts/config --enable TMPFS
     scripts/config --enable TMPFS_POSIX_ACL
     scripts/config --enable INOTIFY_USER

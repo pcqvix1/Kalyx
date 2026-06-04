@@ -1,0 +1,14 @@
+pkg_name="xfce4-power-manager"
+pkg_version="4.20.0"
+source_archive="xfce4-power-manager-4.20.0.tar.bz2"
+source_dir="xfce4-power-manager-4.20.0"
+
+build_recipe() {
+  ./configure --prefix=/usr --sysconfdir=/etc
+  make
+  make install
+
+  if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database /usr/share/applications || true
+  fi
+}

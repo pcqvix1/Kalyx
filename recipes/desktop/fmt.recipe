@@ -1,0 +1,25 @@
+pkg_name="fmt"
+pkg_version="12.1.0"
+source_archive="fmt-12.1.0.tar.gz"
+source_dir="fmt-12.1.0"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  cmake -D CMAKE_INSTALL_PREFIX=/usr     \
+        -D CMAKE_INSTALL_LIBDIR=/usr/lib \
+        -D BUILD_SHARED_LIBS=ON          \
+        -D FMT_TEST=OFF                  \
+        -G Ninja ..
+
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    cmake -D FMT_TEST=ON ..
+    ninja
+    ninja test
+  fi
+
+  ninja install
+}

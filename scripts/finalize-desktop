@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
+require_linux
+require_cmd chroot
+ensure_linux_build_path "$KALYX_WORKDIR"
+ensure_dirs
+
+[[ "$(id -u)" -eq 0 ]] || die "Rode como root: sudo KALYX_WORKDIR=... bash scripts/finalize-desktop"
+[[ -d "$KALYX_ROOTFS/usr" ]] || die "Rootfs nao preparada: $KALYX_ROOTFS"
+
+required_stamps=(
+  systemd
+  dbus
+  sudo
+  lightdm
+  xfce4-session
+  xfce4-panel
+  xfwm4
+  xfdesktop
+  xfce4-terminal
+  thunar
+  xfce4-settings
+  xfce4-power-manager
+)
+
+for stamp in "${required_stamps[@]}"; do
+  [[ -f "$KALYX_ROOTFS/var/lib/kalyx/lfs-stamps/$stamp" ]] || \
+    die "Desktop incompleto: stamp ausente $stamp"
+done
+
+[[ -x "$KALYX_ROOTFS/usr/bin/lightdm" ]] || die "LightDM nao encontrado em /usr/bin/lightdm"
+[[ -x "$KALYX_ROOTFS/usr/bin/startxfce4" ]] || die "XFCE nao encontrou /usr/bin/startxfce4"
+
+info "Finalizando rootfs para boot grafico"
+
+bash "$KALYX_REPO/scripts/mount-rootfs"
+bash "$KALYX_REPO/scripts/prepare-desktop-config"
+
+mkdir -p \
+  "$KALYX_ROOTFS/etc/lightdm/lightdm.conf.d" \
+  "$KALYX_ROOTFS/etc/systemd/system" \
+  "$KALYX_ROOTFS/etc/X11/xorg.conf.d" \
+  "$KALYX_ROOTFS/usr/share/xsessions" \
+  "$KALYX_ROOTFS/var/lib/AccountsService/users" \
+  "$KALYX_ROOTFS/var/lib/lightdm" \
+  "$KALYX_ROOTFS/var/lib/lightdm-data" \
+  "$KALYX_ROOTFS/var/cache/lightdm" \
+  "$KALYX_ROOTFS/var/log/lightdm"
+
+cat > "$KALYX_ROOTFS/etc/lightdm/lightdm.conf.d/20-kalyx-desktop.conf" <<'LIGHTDM'
+[Seat:*]
+greeter-session=lightdm-gtk-greeter
+user-session=xfce
+allow-guest=false
+greeter-hide-users=false
+LIGHTDM
+
+cat > "$KALYX_ROOTFS/etc/lightdm/lightdm-gtk-greeter.conf" <<'GREETER'
+[greeter]
+theme-name=Adwaita
+icon-theme-name=nuoveXT2
+fallback-icon-theme-name=hicolor
+font-name=Noto Sans 10
+show-indicators=~host;~spacer;~clock;~power
+clock-format=%A, %d/%m/%Y %H:%M
+GREETER
+
+cat > "$KALYX_ROOTFS/etc/X11/xorg.conf.d/00-keyboard.conf" <<XKB
+Section "InputClass"
+        Identifier "system-keyboard"
+        MatchIsKeyboard "on"
+        Option "XkbLayout" "$KALYX_XKB_LAYOUT"
+        Option "XkbVariant" "$KALYX_XKB_VARIANT"
+EndSection
+XKB
+
+if [[ ! -f "$KALYX_ROOTFS/usr/share/xsessions/xfce.desktop" ]]; then
+  cat > "$KALYX_ROOTFS/usr/share/xsessions/xfce.desktop" <<'XFCE_SESSION'
+[Desktop Entry]
+Version=1.0
+Name=XFCE
+Comment=Use this session to run XFCE as your desktop environment
+Exec=startxfce4
+TryExec=startxfce4
+Icon=
+Type=Application
+DesktopNames=XFCE
+XFCE_SESSION
+fi
+
+if [[ -e "$KALYX_ROOTFS/usr/lib/systemd/system/lightdm.service" ]]; then
+  ln -sf /usr/lib/systemd/system/lightdm.service "$KALYX_ROOTFS/etc/systemd/system/display-manager.service"
+else
+  die "Unidade systemd do LightDM ausente: /usr/lib/systemd/system/lightdm.service"
+fi
+
+chroot "$KALYX_ROOTFS" /usr/sbin/groupadd -f users
+chroot "$KALYX_ROOTFS" /usr/sbin/groupadd -f wheel
+
+if ! chroot "$KALYX_ROOTFS" /usr/bin/getent passwd "$KALYX_LIVE_USER" >/dev/null 2>&1; then
+  chroot "$KALYX_ROOTFS" /usr/sbin/useradd -m -G users,wheel -s /bin/bash "$KALYX_LIVE_USER"
+fi
+
+printf '%s:%s\n' "$KALYX_LIVE_USER" "$KALYX_LIVE_USER" | chroot "$KALYX_ROOTFS" /usr/sbin/chpasswd
+
+for item in .dmrc .bash_profile .bashrc .config; do
+  if [[ -e "$KALYX_ROOTFS/etc/skel/$item" ]]; then
+    rm -rf "$KALYX_ROOTFS/home/$KALYX_LIVE_USER/$item"
+    cp -a "$KALYX_ROOTFS/etc/skel/$item" "$KALYX_ROOTFS/home/$KALYX_LIVE_USER/$item"
+  fi
+done
+
+cat > "$KALYX_ROOTFS/var/lib/AccountsService/users/$KALYX_LIVE_USER" <<ACCOUNTS
+[User]
+Session=xfce
+XSession=xfce
+SystemAccount=false
+ACCOUNTS
+
+chroot "$KALYX_ROOTFS" /usr/bin/chown -R "$KALYX_LIVE_USER:users" "/home/$KALYX_LIVE_USER"
+chroot "$KALYX_ROOTFS" /usr/bin/chown -R lightdm:lightdm /var/lib/lightdm /var/lib/lightdm-data /var/cache/lightdm /var/log/lightdm
+
+rm -f "$KALYX_ROOTFS/etc/systemd/system/getty@tty1.service.d/autologin.conf"
+rm -f "$KALYX_ROOTFS/etc/lightdm/lightdm.conf.d/50-kalyx-live.conf"
+rm -f "$KALYX_ROOTFS/etc/sudoers.d/90-kalyx-live"
+
+chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl set-default graphical.target'
+chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl enable display-manager.service'
+chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl enable dbus.service polkit.service systemd-timesyncd.service' || \
+  warn "Alguns servicos graficos/politica/tempo ainda nao puderam ser habilitados."
+chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl enable NetworkManager.service' || \
+  warn "NetworkManager ainda nao pode ser habilitado."
+
+info "Desktop finalizado: LightDM + sessao XFCE + usuario '$KALYX_LIVE_USER' preparados."
+info "Para ISO live com autologin, rode depois: sudo KALYX_WORKDIR=$KALYX_WORKDIR bash scripts/prepare-live-config"

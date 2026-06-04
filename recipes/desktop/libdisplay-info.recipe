@@ -1,0 +1,18 @@
+pkg_name="libdisplay-info"
+pkg_version="0.3.0"
+source_archive="libdisplay-info-0.3.0.tar.xz"
+source_dir="libdisplay-info-0.3.0"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup --prefix=/usr --buildtype=release ..
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    ninja test
+  fi
+
+  ninja install
+}

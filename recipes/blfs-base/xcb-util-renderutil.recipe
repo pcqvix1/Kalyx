@@ -1,0 +1,13 @@
+pkg_name="xcb-util-renderutil"
+pkg_version="0.3.10"
+source_archive="xcb-util-renderutil-0.3.10.tar.xz"
+source_dir="xcb-util-renderutil-0.3.10"
+
+build_recipe() {
+  ./configure --prefix=/usr        \
+              --sysconfdir=/etc    \
+              --localstatedir=/var \
+              --disable-static
+  make
+  make install
+}

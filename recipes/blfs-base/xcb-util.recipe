@@ -1,0 +1,13 @@
+pkg_name="xcb-util"
+pkg_version="0.4.1"
+source_archive="xcb-util-0.4.1.tar.xz"
+source_dir="xcb-util-0.4.1"
+
+build_recipe() {
+  ./configure --prefix=/usr        \
+              --sysconfdir=/etc    \
+              --localstatedir=/var \
+              --disable-static
+  make
+  make install
+}

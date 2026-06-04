@@ -1,0 +1,23 @@
+pkg_name="libnotify"
+pkg_version="0.8.8"
+source_archive="libnotify-0.8.8.tar.xz"
+source_dir="libnotify-0.8.8"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup --prefix=/usr      \
+              --buildtype=release \
+              -D gtk_doc=false    \
+              -D man=false        \
+              ..
+
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    ninja test
+  fi
+
+  ninja install
+}

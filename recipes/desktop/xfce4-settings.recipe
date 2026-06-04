@@ -1,0 +1,14 @@
+pkg_name="xfce4-settings"
+pkg_version="4.20.3"
+source_archive="xfce4-settings-4.20.3.tar.bz2"
+source_dir="xfce4-settings-4.20.3"
+
+build_recipe() {
+  ./configure --prefix=/usr --sysconfdir=/etc
+  make
+  make install
+
+  if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database /usr/share/applications || true
+  fi
+}

@@ -1,0 +1,10 @@
+pkg_name="xfconf"
+pkg_version="4.20.0"
+source_archive="xfconf-4.20.0.tar.bz2"
+source_dir="xfconf-4.20.0"
+
+build_recipe() {
+  ./configure --prefix=/usr
+  make
+  make install
+}

@@ -1,0 +1,15 @@
+pkg_name="xfce4-dev-tools"
+pkg_version="4.20.0"
+source_archive="xfce4-dev-tools-4.20.0.tar.bz2"
+source_dir="xfce4-dev-tools-4.20.0"
+
+build_recipe() {
+  ./configure --prefix=/usr
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}

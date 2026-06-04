@@ -1,0 +1,17 @@
+pkg_name="gsettings-desktop-schemas"
+pkg_version="49.1"
+source_archive="gsettings-desktop-schemas-49.1.tar.xz"
+source_dir="gsettings-desktop-schemas-49.1"
+
+build_recipe() {
+  sed -i -r 's:"(/system):"/org/gnome\1:g' schemas/*.in
+
+  mkdir build
+  cd build
+
+  meson setup --prefix=/usr --buildtype=release ..
+  ninja
+  ninja install
+
+  glib-compile-schemas /usr/share/glib-2.0/schemas
+}

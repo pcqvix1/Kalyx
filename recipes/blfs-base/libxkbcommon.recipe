@@ -1,0 +1,22 @@
+pkg_name="libxkbcommon"
+pkg_version="1.13.1"
+source_archive="libxkbcommon-1.13.1.tar.gz"
+source_dir="libxkbcommon-1.13.1"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup ..            \
+        --prefix=/usr       \
+        --buildtype=release \
+        -D enable-docs=false
+
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    ninja test || true
+  fi
+
+  ninja install
+}

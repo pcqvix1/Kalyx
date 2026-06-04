@@ -1,0 +1,10 @@
+pkg_name="libxklavier"
+pkg_version="5.4"
+source_archive="libxklavier-5.4.tar.bz2"
+source_dir="libxklavier-5.4"
+
+build_recipe() {
+  ./configure --prefix=/usr --disable-static
+  make
+  make install
+}

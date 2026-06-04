@@ -1,0 +1,35 @@
+pkg_name="mesa"
+pkg_version="25.3.5"
+source_archive="mesa-25.3.5.tar.xz"
+source_dir="mesa-25.3.5"
+extra_archives=(
+  "mesa-add_xdemos-4.patch"
+)
+
+build_recipe() {
+  export XORG_PREFIX="/usr"
+
+  patch -Np1 -i /sources/mesa-add_xdemos-4.patch
+
+  mkdir build
+  cd build
+
+  meson setup ..                 \
+        --prefix="$XORG_PREFIX"  \
+        --buildtype=release      \
+        -D platforms=x11         \
+        -D gallium-drivers=swrast,virgl,svga \
+        -D vulkan-drivers=""     \
+        -D valgrind=disabled     \
+        -D libunwind=disabled    \
+        -D llvm=disabled
+
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    meson configure -D build-tests=true
+    ninja test
+  fi
+
+  ninja install
+}

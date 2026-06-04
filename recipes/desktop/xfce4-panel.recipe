@@ -1,0 +1,10 @@
+pkg_name="xfce4-panel"
+pkg_version="4.20.6"
+source_archive="xfce4-panel-4.20.6.tar.bz2"
+source_dir="xfce4-panel-4.20.6"
+
+build_recipe() {
+  ./configure --prefix=/usr --sysconfdir=/etc
+  make
+  make install
+}

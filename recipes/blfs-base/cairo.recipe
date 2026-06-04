@@ -1,0 +1,13 @@
+pkg_name="cairo"
+pkg_version="1.18.4"
+source_archive="cairo-1.18.4.tar.xz"
+source_dir="cairo-1.18.4"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup --prefix=/usr --buildtype=release ..
+  ninja
+  ninja install
+}

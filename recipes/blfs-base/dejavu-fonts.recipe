@@ -1,0 +1,10 @@
+pkg_name="dejavu-fonts"
+pkg_version="2.37"
+source_archive="dejavu-fonts-ttf-2.37.tar.bz2"
+source_dir="dejavu-fonts-ttf-2.37"
+
+build_recipe() {
+  install -vdm755 /usr/share/fonts/dejavu
+  install -v -m644 ttf/*.ttf /usr/share/fonts/dejavu
+  fc-cache -v /usr/share/fonts/dejavu
+}

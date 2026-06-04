@@ -1,0 +1,26 @@
+pkg_name="xkeyboard-config"
+pkg_version="2.46"
+source_archive="xkeyboard-config-2.46.tar.xz"
+source_dir="xkeyboard-config-2.46"
+
+build_recipe() {
+  export XORG_PREFIX="/usr"
+
+  mkdir build
+  cd build
+
+  meson setup --prefix="$XORG_PREFIX" --buildtype=release ..
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    ninja test || true
+  fi
+
+  if [[ -d "$XORG_PREFIX/share/X11/xkb" ]]; then
+    rm -rf "$XORG_PREFIX/share/X11/xkb"
+    rm -f "$XORG_PREFIX/share/man/man7/xkeyboard-config.7"
+    rm -f "$XORG_PREFIX/share/pkgconfig/xkeyboard-config.pc"
+  fi
+
+  ninja install
+}

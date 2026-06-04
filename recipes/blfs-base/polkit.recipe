@@ -1,0 +1,27 @@
+pkg_name="polkit"
+pkg_version="127"
+source_archive="polkit-127.tar.gz"
+source_dir="polkit-127"
+
+build_recipe() {
+  groupadd -fg 27 polkitd
+  if ! getent passwd polkitd >/dev/null; then
+    useradd -c "PolicyKit Daemon Owner" -d /etc/polkit-1 -u 27 \
+            -g polkitd -s /bin/false polkitd
+  fi
+
+  mkdir build
+  cd build
+
+  meson setup ..                   \
+        --prefix=/usr              \
+        --buildtype=release        \
+        -D os_type=lfs             \
+        -D authfw=pam              \
+        -D man=false               \
+        -D session_tracking=logind \
+        -D tests=false
+
+  ninja
+  ninja install
+}

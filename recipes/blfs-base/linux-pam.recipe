@@ -1,0 +1,79 @@
+pkg_name="linux-pam"
+pkg_version="1.7.2"
+source_archive="Linux-PAM-1.7.2.tar.xz"
+source_dir="Linux-PAM-1.7.2"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup ..        \
+    --prefix=/usr       \
+    --buildtype=release \
+    -D docdir=/usr/share/doc/Linux-PAM-1.7.2
+
+  ninja
+
+  install -v -m755 -d /etc/pam.d
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    cat > /etc/pam.d/other <<'EOF'
+auth     required       pam_deny.so
+account  required       pam_deny.so
+password required       pam_deny.so
+session  required       pam_deny.so
+EOF
+    ninja test
+    rm -fv /etc/pam.d/other
+  fi
+
+  ninja install
+  chmod -v 4755 /usr/sbin/unix_chkpwd
+
+  cat > /etc/pam.d/system-account <<'EOF'
+# Begin /etc/pam.d/system-account
+
+account   required    pam_unix.so
+
+# End /etc/pam.d/system-account
+EOF
+
+  cat > /etc/pam.d/system-auth <<'EOF'
+# Begin /etc/pam.d/system-auth
+
+auth      required    pam_unix.so
+
+# End /etc/pam.d/system-auth
+EOF
+
+  cat > /etc/pam.d/system-session <<'EOF'
+# Begin /etc/pam.d/system-session
+
+session   required    pam_unix.so
+
+# End /etc/pam.d/system-session
+EOF
+
+  cat > /etc/pam.d/system-password <<'EOF'
+# Begin /etc/pam.d/system-password
+
+password  required    pam_unix.so       yescrypt shadow try_first_pass
+
+# End /etc/pam.d/system-password
+EOF
+
+  cat > /etc/pam.d/other <<'EOF'
+# Begin /etc/pam.d/other
+
+auth        required        pam_warn.so
+auth        required        pam_deny.so
+account     required        pam_warn.so
+account     required        pam_deny.so
+password    required        pam_warn.so
+password    required        pam_deny.so
+session     required        pam_warn.so
+session     required        pam_deny.so
+
+# End /etc/pam.d/other
+EOF
+}

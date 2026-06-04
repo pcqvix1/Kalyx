@@ -1,0 +1,18 @@
+pkg_name="libepoxy"
+pkg_version="1.5.10"
+source_archive="libepoxy-1.5.10.tar.xz"
+source_dir="libepoxy-1.5.10"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup --prefix=/usr --buildtype=release ..
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    ninja test
+  fi
+
+  ninja install
+}

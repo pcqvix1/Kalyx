@@ -84,8 +84,9 @@ sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/build-chroot-temp
 sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/build-base
 sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/finalize-base
 sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/make-boot-disk
-bash scripts/build-blfs-base
-bash scripts/build-desktop
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/build-blfs-base
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/build-desktop
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/finalize-desktop
 ```
 
 `finalize-base` prepara a rootfs para boot de terminal: `fstab` placeholder,
@@ -102,6 +103,21 @@ Ela contem uma ESP FAT32, uma raiz ext4, um initramfs de boot, GRUB UEFI
 removivel e um `grub.cfg` apontando para o kernel da Kalyx. Essa imagem e o
 primeiro teste de boot real em terminal.
 
+O Bloco 2 possui manifestos completos para a base grafica e o desktop reduzido.
+`build-blfs-base` compila PAM, sudo, GLib, Polkit, NetworkManager, fontes, Xorg
+Libraries, Mesa, Xorg Server, libinput, GTK e LightDM dentro do chroot.
+Depois dela, `build-desktop` compila o XFCE reduzido ate Thunar,
+xfce4-settings e xfce4-power-manager.
+
+Essas duas fases podem demorar bastante na VM e podem revelar ajustes finos de
+receita durante a primeira compilacao real. Se uma receita falhar, leia o log
+indicado pelo script em `~/kalyx-work/logs/`.
+
+`finalize-desktop` troca a rootfs para `graphical.target`, habilita LightDM,
+garante a sessao `xfce`, cria/atualiza o usuario de teste `kalyx` e remove a
+camada live. Para gerar ISO live, rode `prepare-live-config` de novo logo antes
+do initramfs/ISO.
+
 Se `finalize-base` avisar que o kernel antigo nao tem suporte de disco embutido,
 recompile apenas a receita do kernel:
 
@@ -109,11 +125,13 @@ recompile apenas a receita do kernel:
 sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/chroot-build-recipe recipes/base/linux-kernel.recipe
 ```
 
-Depois que o rootfs tiver kernel, systemd, BusyBox para initramfs e XFCE:
+Depois que o rootfs tiver kernel, systemd, BusyBox para initramfs, XFCE e
+finalizacao grafica:
 
 ```bash
-bash scripts/build-live-initramfs
-bash scripts/make-iso
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/prepare-live-config
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/build-live-initramfs
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/make-iso
 ```
 
 Comando até agora usados na ordem, usados dentro da pasta kalyx:
@@ -130,5 +148,11 @@ sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/build-chroot-temp
 sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/build-base
 sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/finalize-base
 sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/make-boot-disk
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/build-blfs-base
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/build-desktop
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/finalize-desktop
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/prepare-live-config
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/build-live-initramfs
+sudo KALYX_WORKDIR=/home/pedro/kalyx-work bash scripts/make-iso
 ```
 

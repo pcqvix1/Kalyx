@@ -64,7 +64,8 @@ A configuracao padrao do usuario instalado vem de `/etc/skel`:
 - relogio com dia, data e hora;
 - launcher `Config`;
 - script `kalyx-time-config`, que usa `timedatectl` para NTP, timezone e hora
-  manual;
+  manual, abrindo em terminal grafico quando nao houver backend grafico de
+  dialogo instalado;
 - autorizacao via Polkit para usuarios no grupo `wheel`.
 
 ## Manifestos

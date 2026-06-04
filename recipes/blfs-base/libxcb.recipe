@@ -1,0 +1,20 @@
+pkg_name="libxcb"
+pkg_version="1.17.0"
+source_archive="libxcb-1.17.0.tar.xz"
+source_dir="libxcb-1.17.0"
+
+build_recipe() {
+  PYTHON=python3 ./configure --prefix=/usr        \
+                             --sysconfdir=/etc    \
+                             --localstatedir=/var \
+                             --disable-static     \
+                             --without-doxygen
+
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}

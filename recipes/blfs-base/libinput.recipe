@@ -1,0 +1,23 @@
+pkg_name="libinput"
+pkg_version="1.31.0"
+source_archive="libinput-1.31.0.tar.gz"
+source_dir="libinput-1.31.0"
+
+build_recipe() {
+  export XORG_PREFIX="/usr"
+
+  mkdir build
+  cd build
+
+  meson setup ..                 \
+        --prefix="$XORG_PREFIX"  \
+        --buildtype=release      \
+        -D debug-gui=false       \
+        -D tests=false           \
+        -D libwacom=false        \
+        -D documentation=false   \
+        -D udev-dir=/usr/lib/udev
+
+  ninja
+  ninja install
+}

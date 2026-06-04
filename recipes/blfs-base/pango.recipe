@@ -1,0 +1,22 @@
+pkg_name="pango"
+pkg_version="1.57.0"
+source_archive="pango-1.57.0.tar.xz"
+source_dir="pango-1.57.0"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup --prefix=/usr            \
+              --buildtype=release      \
+              --wrap-mode=nofallback   \
+              -D introspection=enabled \
+              ..
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    ninja test || true
+  fi
+
+  ninja install
+}

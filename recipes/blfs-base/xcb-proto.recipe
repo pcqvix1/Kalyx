@@ -1,0 +1,9 @@
+pkg_name="xcb-proto"
+pkg_version="1.17.0"
+source_archive="xcb-proto-1.17.0.tar.xz"
+source_dir="xcb-proto-1.17.0"
+
+build_recipe() {
+  PYTHON=python3 ./configure --prefix=/usr
+  make install
+}

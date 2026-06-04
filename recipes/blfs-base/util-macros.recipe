@@ -1,0 +1,9 @@
+pkg_name="util-macros"
+pkg_version="1.20.2"
+source_archive="util-macros-1.20.2.tar.xz"
+source_dir="util-macros-1.20.2"
+
+build_recipe() {
+  ./configure --prefix=/usr
+  make install
+}

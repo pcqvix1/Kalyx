@@ -1,0 +1,32 @@
+pkg_name="xorg-server"
+pkg_version="21.1.21"
+source_archive="xorg-server-21.1.21.tar.xz"
+source_dir="xorg-server-21.1.21"
+extra_archives=(
+  "xorg-server-21.1.21-tearfree_backport-1.patch"
+)
+
+build_recipe() {
+  export XORG_PREFIX="/usr"
+
+  patch -Np1 -i /sources/xorg-server-21.1.21-tearfree_backport-1.patch
+
+  mkdir build
+  cd build
+
+  meson setup ..                 \
+        --prefix="$XORG_PREFIX"  \
+        --localstatedir=/var     \
+        -D glamor=true           \
+        -D xkb_output_dir=/var/lib/xkb
+
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    /sbin/ldconfig
+    ninja test || true
+  fi
+
+  ninja install
+  mkdir -pv /etc/X11/xorg.conf.d
+}

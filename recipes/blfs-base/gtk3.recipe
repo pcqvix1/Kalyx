@@ -1,0 +1,22 @@
+pkg_name="gtk3"
+pkg_version="3.24.51"
+source_archive="gtk-3.24.51.tar.xz"
+source_dir="gtk-3.24.51"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup ..             \
+        --prefix=/usr        \
+        --buildtype=release  \
+        -D man=false         \
+        -D broadway_backend=false \
+        -D tracker3=false
+
+  ninja
+
+  ninja install
+  gtk-query-immodules-3.0 --update-cache
+  glib-compile-schemas /usr/share/glib-2.0/schemas
+}

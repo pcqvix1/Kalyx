@@ -1,0 +1,25 @@
+pkg_name="libxml2"
+pkg_version="2.15.1"
+source_archive="libxml2-2.15.1.tar.xz"
+source_dir="libxml2-2.15.1"
+
+build_recipe() {
+  sed -i "/'git'/,+3d" meson.build
+
+  mkdir build
+  cd build
+
+  meson setup ..           \
+        --prefix=/usr      \
+        -D history=enabled \
+        -D icu=disabled
+
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    ninja test
+  fi
+
+  ninja install
+  sed "s/--static/--shared/" -i /usr/bin/xml2-config
+}

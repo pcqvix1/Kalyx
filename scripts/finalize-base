@@ -107,6 +107,7 @@ cat > "$KALYX_ROOTFS/etc/profile" <<'PROFILE'
 export LANG="${LANG:-pt_BR.UTF-8}"
 export HISTSIZE=1000
 export HISTFILESIZE=2000
+export PATH="/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
 
 if [ "$(id -u)" -eq 0 ]; then
   PS1='Kalyx@\u:\w# '
@@ -129,8 +130,10 @@ BASH_PROFILE
 
 cat > "$KALYX_ROOTFS/etc/skel/.bashrc" <<'BASHRC'
 if [ "$(id -u)" -eq 0 ]; then
+  export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
   PS1='Kalyx@\u:\w# '
 else
+  export PATH="/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
   PS1='Kalyx@\u:\w$ '
 fi
 
@@ -149,6 +152,10 @@ UseDomains=true
 NETWORK
 
 ln -sf ../run/systemd/resolve/stub-resolv.conf "$KALYX_ROOTFS/etc/resolv.conf"
+
+if [[ -x "$KALYX_ROOTFS/usr/sbin/ip" && ! -e "$KALYX_ROOTFS/usr/bin/ip" ]]; then
+  ln -s ../sbin/ip "$KALYX_ROOTFS/usr/bin/ip"
+fi
 
 if ! grep -q '^kalyx:' "$KALYX_ROOTFS/etc/passwd"; then
   chroot "$KALYX_ROOTFS" /usr/sbin/useradd -m -G users,wheel -s /bin/bash kalyx

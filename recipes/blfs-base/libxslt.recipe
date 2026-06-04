@@ -1,0 +1,18 @@
+pkg_name="libxslt"
+pkg_version="1.1.45"
+source_archive="libxslt-1.1.45.tar.xz"
+source_dir="libxslt-1.1.45"
+
+build_recipe() {
+  ./configure --prefix=/usr    \
+              --disable-static \
+              --without-python \
+              --docdir=/usr/share/doc/libxslt-1.1.45
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check
+  fi
+
+  make install
+}

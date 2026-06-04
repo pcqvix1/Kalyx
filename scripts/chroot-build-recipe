@@ -10,7 +10,7 @@ recipe="${1:-}"
 [[ -f "$recipe" ]] || die "Receita nao encontrada: $recipe"
 
 require_linux
-require_cmd chroot tar md5sum
+require_cmd chroot tar md5sum python3
 ensure_linux_build_path "$KALYX_WORKDIR"
 ensure_dirs
 
@@ -83,7 +83,21 @@ for extra in "${extra_archives[@]}"; do
   install -m 0644 "$(lfs_source_path "$extra")" "$KALYX_ROOTFS/sources/${extra##*/}"
 done
 
-tar -xf "$(lfs_source_path "$source_archive")" -C "$host_phase"
+source_path="$(lfs_source_path "$source_archive")"
+case "$source_archive" in
+  *.zip)
+    python3 - "$source_path" "$host_phase" <<'PY'
+import sys
+import zipfile
+archive, dest = sys.argv[1], sys.argv[2]
+with zipfile.ZipFile(archive) as zf:
+    zf.extractall(dest)
+PY
+    ;;
+  *)
+    tar -xf "$source_path" -C "$host_phase"
+    ;;
+esac
 [[ -d "$host_phase/$source_dir" ]] || die "Diretorio fonte nao encontrado: $host_phase/$source_dir"
 
 install -m 0644 "$recipe" "$KALYX_ROOTFS/tmp/kalyx-recipe.sh"

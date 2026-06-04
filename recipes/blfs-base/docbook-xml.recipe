@@ -1,0 +1,63 @@
+pkg_name="docbook-xml"
+pkg_version="4.5"
+source_archive="docbook-xml-4.5.zip"
+source_dir="."
+
+build_recipe() {
+  install -v -d -m755 /usr/share/xml/docbook/xml-dtd-4.5
+  install -v -d -m755 /etc/xml
+  cp -v -af --no-preserve=ownership \
+      catalog.xml docbook.cat *.dtd ent/ *.mod \
+      /usr/share/xml/docbook/xml-dtd-4.5
+
+  xmlcatalog --noout --add "rewriteSystem"        \
+      "http://www.oasis-open.org/docbook/xml/4.5" \
+      "file:///usr/share/xml/docbook/xml-dtd-4.5" \
+      /usr/share/xml/docbook/xml-dtd-4.5/catalog.xml
+
+  xmlcatalog --noout --add "rewriteURI"           \
+      "http://www.oasis-open.org/docbook/xml/4.5" \
+      "file:///usr/share/xml/docbook/xml-dtd-4.5" \
+      /usr/share/xml/docbook/xml-dtd-4.5/catalog.xml
+
+  if [[ ! -e /etc/xml/catalog ]]; then
+    xmlcatalog --noout --create /etc/xml/catalog
+  fi
+
+  xmlcatalog --noout --add "delegatePublic"                   \
+      "-//OASIS//ENTITIES DocBook XML"                        \
+      "file:///usr/share/xml/docbook/xml-dtd-4.5/catalog.xml" \
+      /etc/xml/catalog
+
+  xmlcatalog --noout --add "delegatePublic"                   \
+      "-//OASIS//DTD DocBook XML"                             \
+      "file:///usr/share/xml/docbook/xml-dtd-4.5/catalog.xml" \
+      /etc/xml/catalog
+
+  xmlcatalog --noout --add "delegateSystem"                   \
+      "http://www.oasis-open.org/docbook/"                    \
+      "file:///usr/share/xml/docbook/xml-dtd-4.5/catalog.xml" \
+      /etc/xml/catalog
+
+  xmlcatalog --noout --add "delegateURI"                      \
+      "http://www.oasis-open.org/docbook/"                    \
+      "file:///usr/share/xml/docbook/xml-dtd-4.5/catalog.xml" \
+      /etc/xml/catalog
+
+  for dtd_version in 4.1.2 4.2 4.3 4.4; do
+    xmlcatalog --noout --add "public"                                 \
+        "-//OASIS//DTD DocBook XML V$dtd_version//EN"                 \
+        "http://www.oasis-open.org/docbook/xml/$dtd_version/docbookx.dtd" \
+        /usr/share/xml/docbook/xml-dtd-4.5/catalog.xml
+
+    xmlcatalog --noout --add "rewriteSystem"                         \
+        "http://www.oasis-open.org/docbook/xml/$dtd_version"          \
+        "file:///usr/share/xml/docbook/xml-dtd-4.5"                   \
+        /usr/share/xml/docbook/xml-dtd-4.5/catalog.xml
+
+    xmlcatalog --noout --add "rewriteURI"                            \
+        "http://www.oasis-open.org/docbook/xml/$dtd_version"          \
+        "file:///usr/share/xml/docbook/xml-dtd-4.5"                   \
+        /usr/share/xml/docbook/xml-dtd-4.5/catalog.xml
+  done
+}

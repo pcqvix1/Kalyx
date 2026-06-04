@@ -1,0 +1,18 @@
+pkg_name="desktop-file-utils"
+pkg_version="0.28"
+source_archive="desktop-file-utils-0.28.tar.xz"
+source_dir="desktop-file-utils-0.28"
+
+build_recipe() {
+  rm -fv /usr/bin/desktop-file-edit
+
+  mkdir build
+  cd build
+
+  meson setup --prefix=/usr --buildtype=release ..
+  ninja
+  ninja install
+
+  install -vdm755 /usr/share/applications
+  update-desktop-database /usr/share/applications
+}

@@ -1,0 +1,18 @@
+pkg_name="fribidi"
+pkg_version="1.0.16"
+source_archive="fribidi-1.0.16.tar.xz"
+source_dir="fribidi-1.0.16"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup --prefix=/usr --buildtype=release ..
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    ninja test
+  fi
+
+  ninja install
+}

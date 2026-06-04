@@ -1,0 +1,24 @@
+pkg_name="icu"
+pkg_version="78.2"
+source_archive="icu4c-78.2-sources.tgz"
+source_dir="icu"
+
+build_recipe() {
+  cd source
+
+  case "$(uname -m)" in
+    i?86)
+      sed -e "s/U_PLATFORM_IS_LINUX_BASED/__X86_64__ \&\& &/" \
+          -i test/intltest/ustrtest.cpp
+      ;;
+  esac
+
+  ./configure --prefix=/usr
+  make
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    make check || true
+  fi
+
+  make install
+}

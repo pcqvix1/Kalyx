@@ -1,0 +1,83 @@
+pkg_name="networkmanager"
+pkg_version="1.56.0"
+source_archive="NetworkManager-1.56.0.tar.xz"
+source_dir="NetworkManager-1.56.0"
+
+build_recipe() {
+  grep -rl '^#!.*python$' | xargs sed -i '1s/python/&3/' || true
+
+  mkdir build
+  cd build
+
+  meson setup ..                    \
+        --prefix=/usr               \
+        --buildtype=release         \
+        -D libaudit=no              \
+        -D nmtui=false              \
+        -D ovs=false                \
+        -D ppp=false                \
+        -D nbft=false               \
+        -D selinux=false            \
+        -D qt=false                 \
+        -D session_tracking=systemd \
+        -D nm_cloud_setup=false     \
+        -D modem_manager=false      \
+        -D concheck=false
+
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    ninja test || true
+  fi
+
+  ninja install
+
+  if [[ -e /usr/share/doc/NetworkManager ]]; then
+    rm -rf /usr/share/doc/NetworkManager-1.56.0
+    mv -v /usr/share/doc/NetworkManager{,-1.56.0}
+  fi
+
+  for file in ../man/*.[1578]; do
+    [[ -f "$file" ]] || continue
+    section="${file##*.}"
+    install -vdm755 "/usr/share/man/man$section"
+    install -vm644 "$file" "/usr/share/man/man$section/"
+  done
+
+  if [[ -d ../docs/api && -d ../docs/libnm ]]; then
+    install -vdm755 /usr/share/doc/NetworkManager-1.56.0
+    cp -Rv ../docs/{api,libnm} /usr/share/doc/NetworkManager-1.56.0
+  fi
+
+  install -vdm755 /etc/NetworkManager/conf.d
+
+  cat > /etc/NetworkManager/NetworkManager.conf <<'EOF'
+[main]
+plugins=keyfile
+dns=systemd-resolved
+EOF
+
+  cat > /etc/NetworkManager/conf.d/polkit.conf <<'EOF'
+[main]
+auth-polkit=true
+EOF
+
+  groupadd -fg 86 netdev
+  if getent passwd kalyx >/dev/null; then
+    usermod -a -G netdev kalyx
+  fi
+
+  install -vdm755 /usr/share/polkit-1/rules.d
+  cat > /usr/share/polkit-1/rules.d/org.freedesktop.NetworkManager.rules <<'EOF'
+polkit.addRule(function(action, subject) {
+    if (action.id.indexOf("org.freedesktop.NetworkManager.") == 0 &&
+        subject.isInGroup("netdev")) {
+        return polkit.Result.YES;
+    }
+});
+EOF
+
+  systemctl disable systemd-networkd.service systemd-networkd.socket >/dev/null 2>&1 || true
+  systemctl enable NetworkManager.service >/dev/null 2>&1 || true
+  systemctl disable NetworkManager-wait-online.service >/dev/null 2>&1 || true
+}

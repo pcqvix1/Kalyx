@@ -1,0 +1,18 @@
+pkg_name="iso-codes"
+pkg_version="4.20.1"
+source_archive="iso-codes-v4.20.1.tar.gz"
+source_dir="iso-codes-v4.20.1"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup --prefix=/usr ..
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    ninja test
+  fi
+
+  ninja install
+}

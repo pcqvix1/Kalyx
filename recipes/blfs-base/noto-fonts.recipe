@@ -1,0 +1,18 @@
+pkg_name="noto-fonts"
+pkg_version="2.015"
+source_archive="NotoSans-v2.015.zip"
+source_dir="NotoSans"
+
+build_recipe() {
+  install -vdm755 /usr/share/fonts/noto
+
+  if [[ -d hinted/ttf ]]; then
+    find hinted/ttf -type f -name '*.ttf' -exec install -v -m644 {} /usr/share/fonts/noto \;
+  elif [[ -d unhinted/otf ]]; then
+    find unhinted/otf -type f -name '*.otf' -exec install -v -m644 {} /usr/share/fonts/noto \;
+  else
+    find . -type f \( -name '*.ttf' -o -name '*.otf' \) -exec install -v -m644 {} /usr/share/fonts/noto \;
+  fi
+
+  fc-cache -v /usr/share/fonts/noto
+}

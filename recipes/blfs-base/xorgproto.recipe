@@ -1,0 +1,15 @@
+pkg_name="xorgproto"
+pkg_version="2025.1"
+source_archive="xorgproto-2025.1.tar.xz"
+source_dir="xorgproto-2025.1"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup --prefix=/usr ..
+  ninja
+  ninja install
+
+  mv -v /usr/share/doc/xorgproto{,-2025.1}
+}

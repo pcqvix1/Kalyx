@@ -1,0 +1,28 @@
+pkg_name="vte"
+pkg_version="0.82.3"
+source_archive="vte-0.82.3.tar.gz"
+source_dir="vte-0.82.3"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup ..             \
+        --prefix=/usr        \
+        --buildtype=release  \
+        --wrap-mode=nofallback \
+        -D gtk3=true         \
+        -D gtk4=false        \
+        -D vapi=false        \
+        -D gnutls=false      \
+        -D docs=false
+
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    ninja test || true
+  fi
+
+  ninja install
+  rm -vf /etc/profile.d/vte.*
+}

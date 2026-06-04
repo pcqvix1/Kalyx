@@ -1,0 +1,13 @@
+pkg_name="hicolor-icon-theme"
+pkg_version="0.18"
+source_archive="hicolor-icon-theme-0.18.tar.xz"
+source_dir="hicolor-icon-theme-0.18"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup --prefix=/usr --buildtype=release ..
+  ninja
+  ninja install
+}

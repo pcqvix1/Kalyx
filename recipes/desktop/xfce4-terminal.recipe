@@ -1,0 +1,20 @@
+pkg_name="xfce4-terminal"
+pkg_version="1.1.5"
+source_archive="xfce4-terminal-1.1.5.tar.xz"
+source_dir="xfce4-terminal-1.1.5"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup ..      \
+        --prefix=/usr \
+        --buildtype=release
+
+  ninja
+  ninja install
+
+  if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database /usr/share/applications || true
+  fi
+}

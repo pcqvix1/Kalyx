@@ -1,0 +1,23 @@
+pkg_name="harfbuzz"
+pkg_version="12.3.2"
+source_archive="harfbuzz-12.3.2.tar.xz"
+source_dir="harfbuzz-12.3.2"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup ..            \
+        --prefix=/usr       \
+        --buildtype=release \
+        -D graphite2=disabled \
+        -D docs=disabled
+
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    ninja test
+  fi
+
+  ninja install
+}

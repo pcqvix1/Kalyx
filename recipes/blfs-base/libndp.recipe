@@ -1,0 +1,14 @@
+pkg_name="libndp"
+pkg_version="1.9"
+source_archive="libndp-1.9.tar.gz"
+source_dir="libndp-1.9"
+
+build_recipe() {
+  ./configure --prefix=/usr        \
+              --sysconfdir=/etc    \
+              --localstatedir=/var \
+              --disable-static
+
+  make
+  make install
+}

@@ -1,0 +1,15 @@
+pkg_name="fast-float"
+pkg_version="8.2.3"
+source_archive="fast_float-8.2.3.tar.gz"
+source_dir="fast_float-8.2.3"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  cmake -D CMAKE_INSTALL_PREFIX=/usr \
+        -D CMAKE_BUILD_TYPE=Release  \
+        -G Ninja ..
+
+  ninja install
+}

@@ -95,10 +95,47 @@ Senha de teste: kalyx
 
 ISSUE
 
-cat > "$KALYX_ROOTFS/etc/systemd/system/getty@tty1.service.d/noclear.conf" <<'NOCLEAR'
-[Service]
-TTYVTDisallocate=no
-NOCLEAR
+rm -f "$KALYX_ROOTFS/etc/systemd/system/getty@tty1.service.d/autologin.conf"
+rm -f "$KALYX_ROOTFS/etc/lightdm/lightdm.conf.d/50-kalyx-live.conf"
+rm -f "$KALYX_ROOTFS/etc/sudoers.d/90-kalyx-live"
+rm -f "$KALYX_ROOTFS/etc/skel/Desktop/kalyx-install.desktop"
+rm -f "$KALYX_ROOTFS/etc/systemd/system/getty@tty1.service.d/noclear.conf"
+
+cat > "$KALYX_ROOTFS/etc/profile" <<'PROFILE'
+# Begin /etc/profile
+
+export LANG="${LANG:-pt_BR.UTF-8}"
+export HISTSIZE=1000
+export HISTFILESIZE=2000
+
+if [ "$(id -u)" -eq 0 ]; then
+  PS1='Kalyx@\u:\w# '
+else
+  PS1='Kalyx@\u:\w$ '
+fi
+
+export PS1
+
+# End /etc/profile
+PROFILE
+
+cat > "$KALYX_ROOTFS/etc/skel/.bash_profile" <<'BASH_PROFILE'
+if [ -f ~/.bashrc ]; then
+  . ~/.bashrc
+fi
+
+cd "$HOME"
+BASH_PROFILE
+
+cat > "$KALYX_ROOTFS/etc/skel/.bashrc" <<'BASHRC'
+if [ "$(id -u)" -eq 0 ]; then
+  PS1='Kalyx@\u:\w# '
+else
+  PS1='Kalyx@\u:\w$ '
+fi
+
+export PS1
+BASHRC
 
 cat > "$KALYX_ROOTFS/etc/systemd/network/10-dhcp.network" <<'NETWORK'
 [Match]
@@ -117,6 +154,10 @@ if ! grep -q '^kalyx:' "$KALYX_ROOTFS/etc/passwd"; then
   chroot "$KALYX_ROOTFS" /usr/sbin/useradd -m -G users,wheel -s /bin/bash kalyx
 fi
 printf 'kalyx:kalyx\n' | chroot "$KALYX_ROOTFS" /usr/sbin/chpasswd
+mkdir -p "$KALYX_ROOTFS/home/kalyx"
+install -m 0644 "$KALYX_ROOTFS/etc/skel/.bash_profile" "$KALYX_ROOTFS/home/kalyx/.bash_profile"
+install -m 0644 "$KALYX_ROOTFS/etc/skel/.bashrc" "$KALYX_ROOTFS/home/kalyx/.bashrc"
+chroot "$KALYX_ROOTFS" /bin/chown -R kalyx:users /home/kalyx
 
 chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl set-default multi-user.target'
 chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl enable getty@tty1.service'

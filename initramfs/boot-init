@@ -1,6 +1,6 @@
 #!/bin/busybox sh
 
-set -eu
+set -u
 
 PATH=/bin:/sbin:/usr/bin:/usr/sbin
 export PATH
@@ -20,6 +20,7 @@ mkdir -p /proc /sys /dev /run /newroot
 mount -t proc proc /proc || panic "falha ao montar /proc"
 mount -t sysfs sysfs /sys || panic "falha ao montar /sys"
 mount -t devtmpfs devtmpfs /dev 2>/dev/null || mount -t tmpfs devtmpfs /dev || panic "falha ao montar /dev"
+mount -t tmpfs tmpfs /run 2>/dev/null || true
 mdev -s 2>/dev/null || true
 
 cmdline="$(cat /proc/cmdline)"
@@ -58,7 +59,7 @@ done
 if [ -z "$root_dev" ]; then
   for candidate in /dev/sd*[0-9] /dev/vd*[0-9] /dev/xvd*[0-9] /dev/nvme*n*p[0-9]; do
     [ -b "$candidate" ] || continue
-    if mount -o ro "$candidate" /newroot 2>/dev/null; then
+    if mount -o rw "$candidate" /newroot 2>/dev/null; then
       if [ -x /newroot/sbin/init ] || [ -x /newroot/usr/lib/systemd/systemd ]; then
         root_dev="$candidate"
         break
@@ -70,11 +71,21 @@ fi
 
 [ -n "$root_dev" ] || panic "nao encontrei root device: $root_arg"
 
-mountpoint -q /newroot 2>/dev/null || mount -o ro "$root_dev" /newroot || panic "falha ao montar raiz $root_dev"
+mountpoint -q /newroot 2>/dev/null || mount -o rw "$root_dev" /newroot || panic "falha ao montar raiz $root_dev"
 
-mkdir -p /newroot/{proc,sys,dev,run}
-mount --move /proc /newroot/proc
-mount --move /sys /newroot/sys
-mount --move /dev /newroot/dev
+for dir in proc sys dev run; do
+  if [ ! -d "/newroot/$dir" ]; then
+    mkdir -p "/newroot/$dir" || panic "falha ao criar /$dir na raiz real"
+  fi
+done
+
+if [ ! -x /newroot/sbin/init ] && [ ! -x /newroot/usr/lib/systemd/systemd ]; then
+  panic "init da raiz real nao encontrado"
+fi
+
+mount --move /proc /newroot/proc || panic "falha ao mover /proc"
+mount --move /sys /newroot/sys || panic "falha ao mover /sys"
+mount --move /dev /newroot/dev || panic "falha ao mover /dev"
+mount --move /run /newroot/run || panic "falha ao mover /run"
 
 exec switch_root /newroot /sbin/init

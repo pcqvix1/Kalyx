@@ -107,12 +107,12 @@ search --no-floppy --set=root --fs-uuid $root_uuid
 set gfxpayload=1024x768x32
 
 menuentry "Kalyx Terminal" {
-    linux /boot/${kernel##*/} root=LABEL=KALYX_ROOT rootuuid=$root_uuid ro systemd.unit=multi-user.target
+    linux /boot/${kernel##*/} root=LABEL=KALYX_ROOT rootuuid=$root_uuid rw systemd.unit=multi-user.target
     initrd /boot/initramfs-boot.img
 }
 
 menuentry "Kalyx Terminal (debug)" {
-    linux /boot/${kernel##*/} root=LABEL=KALYX_ROOT rootuuid=$root_uuid ro systemd.unit=multi-user.target systemd.log_level=debug
+    linux /boot/${kernel##*/} root=LABEL=KALYX_ROOT rootuuid=$root_uuid rw systemd.unit=multi-user.target systemd.log_level=debug
     initrd /boot/initramfs-boot.img
 }
 # End /boot/grub/grub.cfg

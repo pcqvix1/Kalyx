@@ -77,9 +77,10 @@ build_recipe() {
   make modules_install
 
   mkdir -p /boot
-  cp -iv arch/x86/boot/bzImage /boot/vmlinuz-6.18.10-kalyx
-  cp -iv System.map /boot/System.map-6.18.10
-  cp -iv .config /boot/config-6.18.10
+  cp -fv arch/x86/boot/bzImage /boot/vmlinuz-6.18.10-kalyx
+  cp -fv System.map /boot/System.map-6.18.10
+  cp -fv .config /boot/config-6.18.10
+  rm -rf /usr/share/doc/linux-6.18.10
   cp -r Documentation -T /usr/share/doc/linux-6.18.10
 
   install -v -m755 -d /etc/modprobe.d

@@ -103,12 +103,21 @@ run_logged() {
 download_to() {
   local url="$1"
   local dest="$2"
+  local tries="${KALYX_DOWNLOAD_TRIES:-2}"
+  local curl_retries=1
   mkdir -p "$(dirname "$dest")"
+
+  if [[ "$tries" =~ ^[0-9]+$ && "$tries" -gt 0 ]]; then
+    curl_retries=$((tries - 1))
+  else
+    tries=2
+    curl_retries=1
+  fi
 
   if command -v wget >/dev/null 2>&1; then
     wget \
       --continue \
-      --tries=5 \
+      --tries="$tries" \
       --timeout=30 \
       --waitretry=5 \
       --retry-connrefused \
@@ -118,7 +127,7 @@ download_to() {
     curl \
       --fail \
       --location \
-      --retry 5 \
+      --retry "$curl_retries" \
       --retry-delay 5 \
       --retry-connrefused \
       --continue-at - \

@@ -107,6 +107,7 @@ declare -A source_urls=()
 declare -A source_fallback_urls=()
 declare -A source_sha256s=()
 declare -A source_md5s=()
+failed_downloads=()
 
 register_source_url() {
   local filename="$1"
@@ -177,6 +178,17 @@ source_available() {
   return 0
 }
 
+record_failed_download() {
+  local archive="$1"
+  local existing
+
+  for existing in "${failed_downloads[@]}"; do
+    [[ "$existing" == "$archive" ]] && return 0
+  done
+
+  failed_downloads+=("$archive")
+}
+
 sha256_ok() {
   local filename="$1"
   local sha256="$2"
@@ -210,7 +222,33 @@ download_extra_source() {
     rm -f "$dest"
   done
 
-  die "Nao consegui baixar fonte extra BLFS valida: $filename"
+  warn "Pulando fonte extra BLFS apos falha: $filename"
+  record_failed_download "$filename"
+  return 1
+}
+
+download_plain_source() {
+  local archive="$1"
+  local url="$2"
+  local dest="$BLFS_SOURCES/$archive"
+
+  if source_available "$archive"; then
+    info "Fonte ja presente/valida: $archive"
+    return 0
+  fi
+
+  rm -f "$dest"
+  info "Baixando fonte: $archive"
+  info "URL: $url"
+
+  if download_to "$url" "$dest" && source_available "$archive"; then
+    return 0
+  fi
+
+  warn "Pulando fonte apos falha: $archive"
+  rm -f "$dest"
+  record_failed_download "$archive"
+  return 1
 }
 
 download_registered_source() {
@@ -225,23 +263,19 @@ download_registered_source() {
 
   if [[ -n "$sha256" ]]; then
     download_extra_source "$archive" "$sha256" "$url" "$fallback_url"
-    return 0
+    return $?
   fi
 
-  [[ -n "$url" ]] || return 1
-
-  info "Fonte exigida pelo manifesto ausente; baixando agora: $archive"
-  download_to "$url" "$dest"
-
-  if [[ -n "$md5" ]]; then
-    printf '%s  %s\n' "$md5" "$dest" | md5sum -c -
+  if [[ -z "$url" ]]; then
+    record_failed_download "$archive"
+    return 1
   fi
 
-  source_available "$archive"
+  download_plain_source "$archive" "$url"
 }
 
 check_blfs_manifest_sources() {
-  local phase manifest entry recipe archive missing=0
+  local phase manifest entry recipe archive pkg_name stamp missing=0 skipped_built=0
 
   info "Conferindo fontes usadas pelos manifestos BLFS da Kalyx"
   for phase in blfs-base desktop; do
@@ -253,10 +287,19 @@ check_blfs_manifest_sources() {
       recipe="$KALYX_REPO/recipes/$phase/$entry.recipe"
       [[ -f "$recipe" ]] || continue
 
+      pkg_name="$(bash -c 'set -Eeuo pipefail; pkg_name=""; source "$1"; printf "%s\n" "$pkg_name"' _ "$recipe")"
+      stamp="$KALYX_ROOTFS/var/lib/kalyx/lfs-stamps/$pkg_name"
+      if [[ "${KALYX_FETCH_BUILT:-0}" != "1" && -n "$pkg_name" && -f "$stamp" ]]; then
+        info "Pulando fontes de $pkg_name; stamp ja existe em $stamp"
+        skipped_built=$((skipped_built + 1))
+        continue
+      fi
+
       while IFS= read -r archive; do
         [[ -n "$archive" ]] || continue
         if ! source_available "$archive" && ! download_registered_source "$archive"; then
           warn "Fonte ausente para $phase/$entry: $archive"
+          record_failed_download "$archive"
           missing=1
         fi
       done < <(
@@ -266,7 +309,23 @@ check_blfs_manifest_sources() {
     done < "$manifest"
   done
 
-  [[ "$missing" -eq 0 ]] || die "Algumas fontes BLFS das receitas ainda estao ausentes."
+  info "Pacotes ja compilados ignorados pelo fetch: $skipped_built"
+  [[ "$missing" -eq 0 ]]
+}
+
+report_failed_downloads() {
+  local archive
+
+  if [[ "${#failed_downloads[@]}" -eq 0 ]]; then
+    return 0
+  fi
+
+  warn "Algumas fontes nao puderam ser baixadas/validadas:"
+  for archive in "${failed_downloads[@]}"; do
+    warn "  - $archive"
+  done
+
+  die "Corrija/baixe as fontes acima e rode fetch-blfs-sources novamente."
 }
 
 info "Baixando lista oficial BLFS em $BLFS_SOURCES"
@@ -275,57 +334,26 @@ info "Sources: $BLFS_SOURCES"
 download_to "$BLFS_DOWNLOAD_BASE/wget-list" "$BLFS_SOURCES/wget-list"
 register_known_sources
 
-info "Baixando fontes BLFS listadas oficialmente"
-if command -v wget >/dev/null 2>&1; then
-  wget \
-    --input-file="$BLFS_SOURCES/wget-list" \
-    --continue \
-    --tries=5 \
-    --timeout=30 \
-    --waitretry=5 \
-    --retry-connrefused \
-    --directory-prefix="$BLFS_SOURCES"
-else
-  while IFS= read -r url; do
-    [[ -z "$url" || "$url" == \#* ]] && continue
-    download_to "$url" "$BLFS_SOURCES/${url##*/}"
-  done < "$BLFS_SOURCES/wget-list"
-fi
+info "Fontes oficiais BLFS serao baixadas sob demanda conforme os manifestos da Kalyx."
 
-info "Baixando fontes extras orientadas pelo BLFS"
-for item in "${extra_sources[@]}"; do
-  IFS='|' read -r filename url sha256 fallback_url <<<"$item"
-  download_extra_source "$filename" "$sha256" "$url" "${fallback_url:-}"
-done
-
-info "Baixando Xorg Libraries listadas no BLFS"
+info "Registrando checksums Xorg usados pelas receitas"
 : > "$BLFS_SOURCES/md5sums"
 for item in "${xorg_library_sources[@]}"; do
   IFS='|' read -r md5 filename <<<"$item"
-  info "Xorg Library: $filename"
-  download_to "https://www.x.org/pub/individual/lib/$filename" "$BLFS_SOURCES/$filename"
-  printf '%s  %s\n' "$md5" "$BLFS_SOURCES/$filename" | md5sum -c -
   printf '%s  %s\n' "$md5" "$filename" >> "$BLFS_SOURCES/md5sums"
 done
 
-info "Baixando Xorg Applications listadas no BLFS"
 for item in "${xorg_application_sources[@]}"; do
   IFS='|' read -r md5 filename <<<"$item"
-  info "Xorg Application: $filename"
-  download_to "https://www.x.org/pub/individual/app/$filename" "$BLFS_SOURCES/$filename"
-  printf '%s  %s\n' "$md5" "$BLFS_SOURCES/$filename" | md5sum -c -
   printf '%s  %s\n' "$md5" "$filename" >> "$BLFS_SOURCES/md5sums"
 done
 
-info "Baixando Xorg Fonts minimas listadas no BLFS"
 for item in "${xorg_font_sources[@]}"; do
   IFS='|' read -r md5 filename <<<"$item"
-  info "Xorg Font: $filename"
-  download_to "https://www.x.org/pub/individual/font/$filename" "$BLFS_SOURCES/$filename"
-  printf '%s  %s\n' "$md5" "$BLFS_SOURCES/$filename" | md5sum -c -
   printf '%s  %s\n' "$md5" "$filename" >> "$BLFS_SOURCES/md5sums"
 done
 
-check_blfs_manifest_sources
+check_blfs_manifest_sources || true
+report_failed_downloads
 
 info "Fontes BLFS baixadas em $BLFS_SOURCES"

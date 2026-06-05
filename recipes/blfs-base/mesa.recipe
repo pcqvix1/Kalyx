@@ -14,14 +14,14 @@ build_recipe() {
   mkdir build
   cd build
 
-  meson setup ..                 \
-        --prefix="$XORG_PREFIX"  \
-        --buildtype=release      \
-        -D platforms=x11         \
-        -D gallium-drivers=swrast,virgl,svga \
-        -D vulkan-drivers=""     \
-        -D valgrind=disabled     \
-        -D libunwind=disabled    \
+  meson setup ..                        \
+        --prefix="$XORG_PREFIX"         \
+        --buildtype=release             \
+        -D platforms=x11                \
+        -D gallium-drivers=softpipe,virgl,svga \
+        -D vulkan-drivers=""            \
+        -D valgrind=disabled            \
+        -D libunwind=disabled           \
         -D llvm=disabled
 
   ninja

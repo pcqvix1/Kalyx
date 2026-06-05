@@ -110,7 +110,7 @@ chroot "$KALYX_ROOTFS" /usr/bin/env -i \
   PATH=/usr/bin:/usr/sbin \
   KALYX_RUN_TESTS="${KALYX_RUN_TESTS:-0}" \
   MAKEFLAGS="${MAKEFLAGS:--j$(nproc)}" \
-  /bin/bash -lc "cd '$chroot_phase/$source_dir' && source /tmp/kalyx-recipe.sh && build_recipe"
+  /bin/bash -lc "set -Eeuo pipefail; cd '$chroot_phase/$source_dir' && source /tmp/kalyx-recipe.sh && build_recipe"
 
 mkdir -p "$KALYX_ROOTFS/var/lib/kalyx/lfs-stamps"
 cat > "$KALYX_ROOTFS/var/lib/kalyx/lfs-stamps/$pkg_name" <<STAMP

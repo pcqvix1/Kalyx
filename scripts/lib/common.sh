@@ -106,9 +106,24 @@ download_to() {
   mkdir -p "$(dirname "$dest")"
 
   if command -v wget >/dev/null 2>&1; then
-    wget --continue --output-document="$dest" "$url"
+    wget \
+      --continue \
+      --tries=5 \
+      --timeout=30 \
+      --waitretry=5 \
+      --retry-connrefused \
+      --output-document="$dest" \
+      "$url"
   elif command -v curl >/dev/null 2>&1; then
-    curl --fail --location --continue-at - --output "$dest" "$url"
+    curl \
+      --fail \
+      --location \
+      --retry 5 \
+      --retry-delay 5 \
+      --retry-connrefused \
+      --continue-at - \
+      --output "$dest" \
+      "$url"
   else
     die "Instale wget ou curl."
   fi
@@ -125,4 +140,3 @@ strip_archive_name() {
   archive="${archive%.zip}"
   printf '%s\n' "$archive"
 }
-

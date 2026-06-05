@@ -16,7 +16,7 @@ mkdir -p "$BLFS_SOURCES"
 
 extra_sources=(
   "libpng-1.6.54-apng.patch|https://www.linuxfromscratch.org/patches/blfs/13.0/libpng-1.6.54-apng.patch|80c3fe2ae1062abf56456f52518bd670f9ec3917b7f85e152b347ac6b6faf880"
-  "dejavu-fonts-ttf-2.37.tar.bz2|https://downloads.sourceforge.net/dejavu/dejavu-fonts-ttf-2.37.tar.bz2|fa9ca4d13871dd122f61258a80d01751d603b4d3ee14095d65453b4e846e17d7"
+  "dejavu-fonts-ttf-2.37.tar.bz2|https://downloads.sourceforge.net/project/dejavu/dejavu/2.37/dejavu-fonts-ttf-2.37.tar.bz2|fa9ca4d13871dd122f61258a80d01751d603b4d3ee14095d65453b4e846e17d7|https://downloads.sourceforge.net/dejavu/dejavu-fonts-ttf-2.37.tar.bz2"
   "NotoSans-v2.015.zip|https://github.com/notofonts/latin-greek-cyrillic/releases/download/NotoSans-v2.015/NotoSans-v2.015.zip|0c34df072a3fa7efbb7cbf34950e1f971a4447cffe365d3a359e2d4089b958f5"
   "xcb-util-image-0.4.1.tar.xz|https://xcb.freedesktop.org/dist/xcb-util-image-0.4.1.tar.xz|ccad8ee5dadb1271fd4727ad14d9bd77a64e505608766c4e98267d9aede40d3d"
   "xcb-util-keysyms-0.4.1.tar.xz|https://xcb.freedesktop.org/dist/xcb-util-keysyms-0.4.1.tar.xz|7c260a5294412aed429df1da2f8afd3bd07b7cba3fec772fba15a613a6d5c638"
@@ -103,6 +103,143 @@ xorg_font_sources=(
   "a6541d12ceba004c0c1e3df900324642|font-util-1.4.1.tar.xz"
 )
 
+declare -A source_urls=()
+declare -A source_fallback_urls=()
+declare -A source_sha256s=()
+declare -A source_md5s=()
+
+register_source_url() {
+  local filename="$1"
+  local url="$2"
+  [[ -n "$filename" && -n "$url" ]] || return 0
+  source_urls["$filename"]="$url"
+}
+
+register_known_sources() {
+  local item filename url sha256 fallback_url md5
+
+  while IFS= read -r url; do
+    [[ -z "$url" || "$url" == \#* ]] && continue
+    filename="${url##*/}"
+    register_source_url "$filename" "$url"
+  done < "$BLFS_SOURCES/wget-list"
+
+  for item in "${extra_sources[@]}"; do
+    IFS='|' read -r filename url sha256 fallback_url <<<"$item"
+    register_source_url "$filename" "$url"
+    source_sha256s["$filename"]="$sha256"
+    [[ -n "${fallback_url:-}" ]] && source_fallback_urls["$filename"]="$fallback_url"
+  done
+
+  for item in "${xorg_library_sources[@]}"; do
+    IFS='|' read -r md5 filename <<<"$item"
+    register_source_url "$filename" "https://www.x.org/pub/individual/lib/$filename"
+    source_md5s["$filename"]="$md5"
+  done
+
+  for item in "${xorg_application_sources[@]}"; do
+    IFS='|' read -r md5 filename <<<"$item"
+    register_source_url "$filename" "https://www.x.org/pub/individual/app/$filename"
+    source_md5s["$filename"]="$md5"
+  done
+
+  for item in "${xorg_font_sources[@]}"; do
+    IFS='|' read -r md5 filename <<<"$item"
+    register_source_url "$filename" "https://www.x.org/pub/individual/font/$filename"
+    source_md5s["$filename"]="$md5"
+  done
+}
+
+source_available() {
+  local archive="$1"
+  local path=""
+  local sha256="${source_sha256s[$archive]:-}"
+  local md5="${source_md5s[$archive]:-}"
+
+  if [[ -f "$BLFS_SOURCES/$archive" ]]; then
+    path="$BLFS_SOURCES/$archive"
+  elif [[ -f "$KALYX_SOURCES/$archive" ]]; then
+    path="$KALYX_SOURCES/$archive"
+  else
+    return 1
+  fi
+
+  if [[ -n "$sha256" ]]; then
+    sha256_ok "$path" "$sha256"
+    return $?
+  fi
+
+  if [[ -n "$md5" ]]; then
+    printf '%s  %s\n' "$md5" "$path" | md5sum -c - >/dev/null 2>&1
+    return $?
+  fi
+
+  return 0
+}
+
+sha256_ok() {
+  local filename="$1"
+  local sha256="$2"
+  [[ -f "$filename" ]] || return 1
+  printf '%s  %s\n' "$sha256" "$filename" | sha256sum -c - >/dev/null 2>&1
+}
+
+download_extra_source() {
+  local filename="$1"
+  local sha256="$2"
+  shift 2
+
+  local dest="$BLFS_SOURCES/$filename"
+  local url
+
+  if sha256_ok "$dest" "$sha256"; then
+    info "Fonte extra BLFS ja validada: $filename"
+    return 0
+  fi
+
+  rm -f "$dest"
+  for url in "$@"; do
+    [[ -n "$url" ]] || continue
+    info "Fonte extra BLFS: $filename"
+    info "URL: $url"
+    if download_to "$url" "$dest" && sha256_ok "$dest" "$sha256"; then
+      printf '%s  %s\n' "$sha256" "$dest" | sha256sum -c -
+      return 0
+    fi
+    warn "Falha baixando ou validando $filename por $url"
+    rm -f "$dest"
+  done
+
+  die "Nao consegui baixar fonte extra BLFS valida: $filename"
+}
+
+download_registered_source() {
+  local archive="$1"
+  local dest="$BLFS_SOURCES/$archive"
+  local url="${source_urls[$archive]:-}"
+  local fallback_url="${source_fallback_urls[$archive]:-}"
+  local sha256="${source_sha256s[$archive]:-}"
+  local md5="${source_md5s[$archive]:-}"
+
+  source_available "$archive" && return 0
+
+  if [[ -n "$sha256" ]]; then
+    download_extra_source "$archive" "$sha256" "$url" "$fallback_url"
+    return 0
+  fi
+
+  [[ -n "$url" ]] || return 1
+
+  info "Fonte exigida pelo manifesto ausente; baixando agora: $archive"
+  download_to "$url" "$dest"
+
+  if [[ -n "$md5" ]]; then
+    printf '%s  %s\n' "$md5" "$dest" | md5sum -c -
+  fi
+
+  source_available "$archive"
+}
+
 check_blfs_manifest_sources() {
   local phase manifest entry recipe archive missing=0
 
@@ -118,7 +255,7 @@ check_blfs_manifest_sources() {
 
       while IFS= read -r archive; do
         [[ -n "$archive" ]] || continue
-        if [[ ! -f "$BLFS_SOURCES/$archive" && ! -f "$KALYX_SOURCES/$archive" ]]; then
+        if ! source_available "$archive" && ! download_registered_source "$archive"; then
           warn "Fonte ausente para $phase/$entry: $archive"
           missing=1
         fi
@@ -136,10 +273,18 @@ info "Baixando lista oficial BLFS em $BLFS_SOURCES"
 info "Workdir: $KALYX_WORKDIR"
 info "Sources: $BLFS_SOURCES"
 download_to "$BLFS_DOWNLOAD_BASE/wget-list" "$BLFS_SOURCES/wget-list"
+register_known_sources
 
 info "Baixando fontes BLFS listadas oficialmente"
 if command -v wget >/dev/null 2>&1; then
-  wget --input-file="$BLFS_SOURCES/wget-list" --continue --directory-prefix="$BLFS_SOURCES"
+  wget \
+    --input-file="$BLFS_SOURCES/wget-list" \
+    --continue \
+    --tries=5 \
+    --timeout=30 \
+    --waitretry=5 \
+    --retry-connrefused \
+    --directory-prefix="$BLFS_SOURCES"
 else
   while IFS= read -r url; do
     [[ -z "$url" || "$url" == \#* ]] && continue
@@ -149,10 +294,8 @@ fi
 
 info "Baixando fontes extras orientadas pelo BLFS"
 for item in "${extra_sources[@]}"; do
-  IFS='|' read -r filename url sha256 <<<"$item"
-  info "Fonte extra BLFS: $filename"
-  download_to "$url" "$BLFS_SOURCES/$filename"
-  printf '%s  %s\n' "$sha256" "$BLFS_SOURCES/$filename" | sha256sum -c -
+  IFS='|' read -r filename url sha256 fallback_url <<<"$item"
+  download_extra_source "$filename" "$sha256" "$url" "${fallback_url:-}"
 done
 
 info "Baixando Xorg Libraries listadas no BLFS"

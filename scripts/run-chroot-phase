@@ -10,6 +10,8 @@ phase="${1:-}"
 
 recipe_dir="$KALYX_REPO/recipes/$phase"
 manifest="$recipe_dir/manifest"
+skipped=0
+built=0
 
 [[ -d "$recipe_dir" ]] || die "Diretorio de receitas nao encontrado: $recipe_dir"
 [[ -f "$manifest" ]] || die "Manifesto nao encontrado: $manifest"
@@ -28,10 +30,12 @@ while IFS= read -r entry; do
   stamp="$KALYX_ROOTFS/var/lib/kalyx/lfs-stamps/$pkg_name"
   if [[ "${KALYX_FORCE_REBUILD:-0}" != "1" && -f "$stamp" ]]; then
     info "Pulando $pkg_name; stamp ja existe em $stamp"
+    skipped=$((skipped + 1))
     continue
   fi
 
   run_logged "$phase-$entry" bash "$KALYX_REPO/scripts/chroot-build-recipe" "$recipe"
+  built=$((built + 1))
 done < "$manifest"
 
-info "Fase '$phase' concluida."
+info "Fase '$phase' concluida. Compilados: $built. Pulados por stamp: $skipped."

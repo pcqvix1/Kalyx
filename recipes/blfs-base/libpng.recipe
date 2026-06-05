@@ -2,10 +2,10 @@ pkg_name="libpng"
 pkg_version="1.6.55"
 source_archive="libpng-1.6.55.tar.xz"
 source_dir="libpng-1.6.55"
-extra_archives=("libpng-1.6.54-apng.patch.gz")
+extra_archives=("libpng-1.6.54-apng.patch")
 
 build_recipe() {
-  zcat /sources/libpng-1.6.54-apng.patch.gz | patch -p1
+  patch -Np1 -i /sources/libpng-1.6.54-apng.patch
 
   ./configure --prefix=/usr --disable-static
   make

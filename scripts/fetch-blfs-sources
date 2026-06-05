@@ -104,7 +104,6 @@ xorg_font_sources=(
 )
 
 declare -A source_urls=()
-declare -A source_fallback_urls=()
 declare -A source_sha256s=()
 declare -A source_md5s=()
 failed_downloads=()
@@ -112,8 +111,40 @@ failed_downloads=()
 register_source_url() {
   local filename="$1"
   local url="$2"
+  local existing registered
+
   [[ -n "$filename" && -n "$url" ]] || return 0
-  source_urls["$filename"]="$url"
+
+  existing="${source_urls[$filename]:-}"
+  while IFS= read -r registered; do
+    [[ "$registered" == "$url" ]] && return 0
+  done <<< "$existing"
+
+  if [[ -n "$existing" ]]; then
+    source_urls["$filename"]+=$'\n'"$url"
+  else
+    source_urls["$filename"]="$url"
+  fi
+}
+
+register_xorg_source() {
+  local section="$1"
+  local md5="$2"
+  local filename="$3"
+
+  source_md5s["$filename"]="$md5"
+  register_source_url "$filename" "https://xorg.freedesktop.org/archive/individual/$section/$filename"
+  register_source_url "$filename" "https://www.x.org/archive/individual/$section/$filename"
+  register_source_url "$filename" "https://www.x.org/releases/individual/$section/$filename"
+  register_source_url "$filename" "https://xorg.freedesktop.org/releases/individual/$section/$filename"
+  register_source_url "$filename" "https://cdn.netbsd.org/pub/pkgsrc/distfiles/$filename"
+
+  case "$filename" in
+    smproxy-1.0.8.tar.xz)
+      register_source_url "$filename" "https://gentoo.osuosl.org/distfiles/7b/$filename"
+      register_source_url "$filename" "https://ftp.osuosl.org/pub/gentoo/distfiles/7b/$filename"
+      ;;
+  esac
 }
 
 register_known_sources() {
@@ -129,25 +160,22 @@ register_known_sources() {
     IFS='|' read -r filename url sha256 fallback_url <<<"$item"
     register_source_url "$filename" "$url"
     source_sha256s["$filename"]="$sha256"
-    [[ -n "${fallback_url:-}" ]] && source_fallback_urls["$filename"]="$fallback_url"
+    [[ -n "${fallback_url:-}" ]] && register_source_url "$filename" "$fallback_url"
   done
 
   for item in "${xorg_library_sources[@]}"; do
     IFS='|' read -r md5 filename <<<"$item"
-    register_source_url "$filename" "https://www.x.org/pub/individual/lib/$filename"
-    source_md5s["$filename"]="$md5"
+    register_xorg_source lib "$md5" "$filename"
   done
 
   for item in "${xorg_application_sources[@]}"; do
     IFS='|' read -r md5 filename <<<"$item"
-    register_source_url "$filename" "https://www.x.org/pub/individual/app/$filename"
-    source_md5s["$filename"]="$md5"
+    register_xorg_source app "$md5" "$filename"
   done
 
   for item in "${xorg_font_sources[@]}"; do
     IFS='|' read -r md5 filename <<<"$item"
-    register_source_url "$filename" "https://www.x.org/pub/individual/font/$filename"
-    source_md5s["$filename"]="$md5"
+    register_xorg_source font "$md5" "$filename"
   done
 }
 
@@ -229,8 +257,9 @@ download_extra_source() {
 
 download_plain_source() {
   local archive="$1"
-  local url="$2"
+  shift
   local dest="$BLFS_SOURCES/$archive"
+  local url
 
   if source_available "$archive"; then
     info "Fonte ja presente/valida: $archive"
@@ -238,40 +267,48 @@ download_plain_source() {
   fi
 
   rm -f "$dest"
-  info "Baixando fonte: $archive"
-  info "URL: $url"
+  for url in "$@"; do
+    [[ -n "$url" ]] || continue
+    info "Baixando fonte: $archive"
+    info "URL: $url"
 
-  if download_to "$url" "$dest" && source_available "$archive"; then
-    return 0
-  fi
+    if download_to "$url" "$dest" && source_available "$archive"; then
+      return 0
+    fi
+
+    warn "Falha baixando ou validando $archive por $url"
+    rm -f "$dest"
+  done
 
   warn "Pulando fonte apos falha: $archive"
-  rm -f "$dest"
   record_failed_download "$archive"
   return 1
 }
 
 download_registered_source() {
   local archive="$1"
-  local dest="$BLFS_SOURCES/$archive"
-  local url="${source_urls[$archive]:-}"
-  local fallback_url="${source_fallback_urls[$archive]:-}"
+  local urls_text="${source_urls[$archive]:-}"
   local sha256="${source_sha256s[$archive]:-}"
-  local md5="${source_md5s[$archive]:-}"
+  local urls=()
+  local url
 
   source_available "$archive" && return 0
 
+  while IFS= read -r url; do
+    [[ -n "$url" ]] && urls+=("$url")
+  done <<< "$urls_text"
+
   if [[ -n "$sha256" ]]; then
-    download_extra_source "$archive" "$sha256" "$url" "$fallback_url"
+    download_extra_source "$archive" "$sha256" "${urls[@]}"
     return $?
   fi
 
-  if [[ -z "$url" ]]; then
+  if [[ "${#urls[@]}" -eq 0 ]]; then
     record_failed_download "$archive"
     return 1
   fi
 
-  download_plain_source "$archive" "$url"
+  download_plain_source "$archive" "${urls[@]}"
 }
 
 check_blfs_manifest_sources() {

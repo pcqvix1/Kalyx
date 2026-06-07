@@ -23,6 +23,7 @@ xfce4-terminal
 lxde-icon-theme
 thunar
 libusb
+libgudev
 upower
 xfce4-settings
 xfce4-power-manager

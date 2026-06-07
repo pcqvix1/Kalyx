@@ -1,0 +1,18 @@
+pkg_name="libgudev"
+pkg_version="238"
+source_archive="libgudev-238.tar.xz"
+source_dir="libgudev-238"
+
+build_recipe() {
+  mkdir build
+  cd build
+
+  meson setup --prefix=/usr --buildtype=release ..
+  ninja
+
+  if [[ "${KALYX_RUN_TESTS:-0}" == "1" ]]; then
+    ninja test
+  fi
+
+  ninja install
+}

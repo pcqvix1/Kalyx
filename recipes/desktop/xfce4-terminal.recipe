@@ -4,6 +4,8 @@ source_archive="xfce4-terminal-1.1.5.tar.xz"
 source_dir="xfce4-terminal-1.1.5"
 
 build_recipe() {
+  sed -i '/^custom_target(/,/^)/d' doc/meson.build
+
   mkdir build
   cd build
 

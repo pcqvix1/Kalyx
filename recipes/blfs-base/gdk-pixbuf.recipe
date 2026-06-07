@@ -15,6 +15,8 @@ build_recipe() {
         -D jpeg=disabled        \
         -D tiff=disabled        \
         -D thumbnailer=disabled \
+        -D man=false            \
+        -D gtk_doc=false        \
         --wrap-mode=nofallback  \
         -D glycin=disabled
 

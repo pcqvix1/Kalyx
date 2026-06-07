@@ -11,6 +11,7 @@ build_recipe() {
         --prefix=/usr        \
         --buildtype=release  \
         -D man=false         \
+        -D wayland_backend=false \
         -D broadway_backend=false \
         -D tracker3=false
 

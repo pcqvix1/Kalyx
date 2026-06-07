@@ -11,6 +11,7 @@ build_recipe() {
 
   meson setup ..                  \
         --prefix="$XORG_PREFIX"   \
+        --libdir=/usr/lib         \
         --buildtype=release       \
         -D documentation=disabled \
         -D tests=disabled

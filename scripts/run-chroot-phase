@@ -12,9 +12,16 @@ recipe_dir="$KALYX_REPO/recipes/$phase"
 manifest="$recipe_dir/manifest"
 skipped=0
 built=0
+rebuild_packages="${KALYX_REBUILD_PACKAGES:-}"
+rebuild_list=" ${rebuild_packages//,/ } "
 
 [[ -d "$recipe_dir" ]] || die "Diretorio de receitas nao encontrado: $recipe_dir"
 [[ -f "$manifest" ]] || die "Manifesto nao encontrado: $manifest"
+
+should_rebuild_package() {
+  local package="$1"
+  [[ "$rebuild_list" == *" $package "* ]]
+}
 
 while IFS= read -r entry; do
   [[ -z "$entry" || "$entry" == \#* ]] && continue
@@ -28,10 +35,14 @@ while IFS= read -r entry; do
   pkg_name="$(bash -c 'set -Eeuo pipefail; pkg_name=""; source "$1"; printf "%s\n" "$pkg_name"' _ "$recipe")"
   [[ -n "$pkg_name" ]] || die "Receita sem pkg_name: $recipe"
   stamp="$KALYX_ROOTFS/var/lib/kalyx/lfs-stamps/$pkg_name"
-  if [[ "${KALYX_FORCE_REBUILD:-0}" != "1" && -f "$stamp" ]]; then
+  if [[ "${KALYX_FORCE_REBUILD:-0}" != "1" && -f "$stamp" ]] && ! should_rebuild_package "$pkg_name"; then
     info "Pulando $pkg_name; stamp ja existe em $stamp"
     skipped=$((skipped + 1))
     continue
+  fi
+
+  if [[ -f "$stamp" ]] && should_rebuild_package "$pkg_name"; then
+    info "Recompilando $pkg_name por KALYX_REBUILD_PACKAGES"
   fi
 
   run_logged "$phase-$entry" bash "$KALYX_REPO/scripts/chroot-build-recipe" "$recipe"

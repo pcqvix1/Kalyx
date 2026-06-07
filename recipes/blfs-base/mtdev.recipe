@@ -4,7 +4,11 @@ source_archive="mtdev-1.1.7.tar.bz2"
 source_dir="mtdev-1.1.7"
 
 build_recipe() {
-  ./configure --prefix=/usr --disable-static
+  ./configure --prefix=/usr    \
+              --libdir=/usr/lib \
+              --disable-static
   make
   make install
+
+  pkg-config --exists mtdev
 }

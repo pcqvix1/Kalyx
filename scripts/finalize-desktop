@@ -130,7 +130,6 @@ rm -f "$KALYX_ROOTFS/etc/lightdm/lightdm.conf.d/50-kalyx-live.conf"
 rm -f "$KALYX_ROOTFS/etc/sudoers.d/90-kalyx-live"
 
 chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl set-default graphical.target'
-chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl enable display-manager.service'
 chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl enable dbus.service polkit.service systemd-timesyncd.service' || \
   warn "Alguns servicos graficos/politica/tempo ainda nao puderam ser habilitados."
 chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl enable NetworkManager.service' || \

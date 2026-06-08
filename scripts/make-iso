@@ -74,4 +74,7 @@ GRUB
 
 info "Gerando ISO UEFI/BIOS via grub-mkrescue"
 grub-mkrescue -V "$KALYX_ISO_LABEL" -o "$iso_out" "$iso_tree" -iso-level 3
-info "ISO pronta: $iso_out"
+
+[[ -f "$iso_out" ]] || die "grub-mkrescue terminou, mas a ISO nao foi encontrada em: $iso_out"
+iso_size="$(du -h "$iso_out" | awk '{ print $1 }')"
+info "ISO pronta: $iso_out ($iso_size)"

@@ -28,16 +28,16 @@ if [[ "${KALYX_ALLOW_INCOMPLETE_ISO:-0}" != "1" ]]; then
     die "Usuario live '$KALYX_LIVE_USER' ausente. Rode prepare-live-config com sudo."
 fi
 
-require_cmd grub-mkrescue xorriso mksquashfs
+require_cmd grub-mkrescue xorriso mksquashfs mcopy mformat
+
+[[ -d /usr/lib/grub/x86_64-efi ]] || \
+  die "GRUB EFI x86_64 ausente no host. No Ubuntu, instale: sudo apt install grub-efi-amd64-bin mtools"
 
 kernel="$(find "$KALYX_ROOTFS/boot" -maxdepth 1 -type f -name 'vmlinuz-*' | sort | tail -n 1 || true)"
-initramfs="${KALYX_INITRAMFS:-}"
-if [[ -z "$initramfs" ]]; then
-  initramfs="$(find "$KALYX_ROOTFS/boot" -maxdepth 1 -type f \( -name 'initramfs-*' -o -name 'initrd-*' \) | sort | tail -n 1 || true)"
-fi
-if [[ -z "$initramfs" && -x "$KALYX_ROOTFS/bin/busybox" ]]; then
+initramfs="${KALYX_INITRAMFS:-$KALYX_ISO/initramfs-live.img}"
+
+if [[ -z "${KALYX_INITRAMFS:-}" ]]; then
   bash "$KALYX_REPO/scripts/build-live-initramfs"
-  initramfs="$KALYX_ISO/initramfs-live.img"
 fi
 
 [[ -n "$kernel" ]] || die "Kernel nao encontrado em $KALYX_ROOTFS/boot."
@@ -45,14 +45,23 @@ fi
 
 iso_tree="$KALYX_ISO/tree"
 iso_out="$KALYX_ISO/${KALYX_ID}-${KALYX_VERSION}-x86_64.iso"
+squashfs="$iso_tree/live/rootfs.squashfs"
 
-rm -rf "$iso_tree"
+if [[ "${KALYX_REUSE_SQUASHFS:-0}" == "1" && -f "$squashfs" ]]; then
+  find "$iso_tree" -mindepth 1 ! -path "$iso_tree/live" ! -path "$squashfs" -exec rm -rf {} +
+else
+  rm -rf "$iso_tree"
+fi
 mkdir -p "$iso_tree/boot/grub" "$iso_tree/live"
 
-info "Criando squashfs do rootfs"
-mksquashfs "$KALYX_ROOTFS" "$iso_tree/live/rootfs.squashfs" \
-  -noappend \
-  -e dev proc sys run tmp mnt media lost+found
+if [[ "${KALYX_REUSE_SQUASHFS:-0}" == "1" && -f "$squashfs" ]]; then
+  info "Reaproveitando squashfs existente: $squashfs"
+else
+  info "Criando squashfs do rootfs"
+  mksquashfs "$KALYX_ROOTFS" "$squashfs" \
+    -noappend \
+    -e dev proc sys run tmp mnt media lost+found
+fi
 
 cp "$kernel" "$iso_tree/boot/vmlinuz"
 cp "$initramfs" "$iso_tree/boot/initramfs.img"
@@ -62,12 +71,12 @@ set timeout=5
 set default=0
 
 menuentry "Kalyx Live XFCE" {
-    linux /boot/vmlinuz live.label=$KALYX_ISO_LABEL ro quiet
+    linux /boot/vmlinuz live.label=$KALYX_ISO_LABEL ro console=tty0 loglevel=4
     initrd /boot/initramfs.img
 }
 
 menuentry "Kalyx Live XFCE (debug)" {
-    linux /boot/vmlinuz live.label=$KALYX_ISO_LABEL ro systemd.log_level=debug
+    linux /boot/vmlinuz live.label=$KALYX_ISO_LABEL ro console=tty0 console=ttyS0,115200n8 nomodeset loglevel=7 systemd.log_level=debug systemd.show_status=1 kalyx.debug=1
     initrd /boot/initramfs.img
 }
 GRUB
@@ -76,5 +85,9 @@ info "Gerando ISO UEFI/BIOS via grub-mkrescue"
 grub-mkrescue -V "$KALYX_ISO_LABEL" -o "$iso_out" "$iso_tree" -iso-level 3
 
 [[ -f "$iso_out" ]] || die "grub-mkrescue terminou, mas a ISO nao foi encontrada em: $iso_out"
+if ! xorriso -indev "$iso_out" -report_el_torito plain 2>/dev/null | grep -qE 'El Torito boot img.*UEFI'; then
+  die "ISO gerada sem entrada de boot UEFI. Verifique se grub-efi-amd64-bin e mtools estao instalados no host."
+fi
+
 iso_size="$(du -h "$iso_out" | awk '{ print $1 }')"
 info "ISO pronta: $iso_out ($iso_size)"

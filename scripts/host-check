@@ -27,6 +27,7 @@ required=(
 optional=(
   wget curl git rsync zstd dialog whiptail sgdisk parted mkfs.ext4 mkfs.vfat
   losetup partprobe blkid chroot umount xorriso grub-mkrescue mksquashfs cpio gzip
+  mcopy mformat
 )
 
 require_cmd "${required[@]}"
@@ -74,6 +75,10 @@ REPORT
 
 if [[ "$missing_optional" -ne 0 ]]; then
   warn "Alguns opcionais faltam. O build base pode funcionar, mas ISO/instalador precisam deles."
+fi
+
+if [[ ! -d /usr/lib/grub/x86_64-efi ]]; then
+  warn "GRUB EFI x86_64 ausente. No Ubuntu, instale: sudo apt install grub-efi-amd64-bin mtools"
 fi
 
 info "Host-check concluido."

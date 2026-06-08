@@ -23,7 +23,7 @@ mkdir -p "$stage"/{bin,sbin,proc,sys,dev,run,newroot,lib,usr}
 install -m 0755 "$busybox" "$stage/bin/busybox"
 install -m 0755 "$KALYX_REPO/initramfs/live-init" "$stage/init"
 
-applets="sh mount umount mkdir cat echo sleep switch_root blkid modprobe losetup mdev ls dmesg uname"
+applets="sh mount umount mkdir cat echo sleep switch_root blkid modprobe losetup mdev ls dmesg uname mknod"
 for applet in $applets; do
   ln -s busybox "$stage/bin/$applet"
 done

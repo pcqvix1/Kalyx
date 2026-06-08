@@ -132,8 +132,15 @@ rm -f "$KALYX_ROOTFS/etc/sudoers.d/90-kalyx-live"
 chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl set-default graphical.target'
 chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl enable dbus.service polkit.service systemd-timesyncd.service' || \
   warn "Alguns servicos graficos/politica/tempo ainda nao puderam ser habilitados."
-chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl enable NetworkManager.service' || \
-  warn "NetworkManager ainda nao pode ser habilitado."
+
+if [[ -e "$KALYX_ROOTFS/usr/lib/systemd/system/NetworkManager.service" || \
+      -e "$KALYX_ROOTFS/etc/systemd/system/NetworkManager.service" ]]; then
+  chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl disable systemd-networkd.service systemd-networkd.socket >/dev/null 2>&1 || true'
+  chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl enable NetworkManager.service'
+  chroot "$KALYX_ROOTFS" /bin/bash -lc 'systemctl disable NetworkManager-wait-online.service >/dev/null 2>&1 || true'
+else
+  warn "NetworkManager.service ausente; mantendo a rede base sem habilitar NetworkManager."
+fi
 
 info "Desktop finalizado: LightDM + sessao XFCE + usuario '$KALYX_LIVE_USER' preparados."
 info "Para ISO live com autologin, rode depois: sudo KALYX_WORKDIR=$KALYX_WORKDIR bash scripts/prepare-live-config"

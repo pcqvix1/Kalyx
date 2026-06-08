@@ -73,5 +73,5 @@ menuentry "Kalyx Live XFCE (debug)" {
 GRUB
 
 info "Gerando ISO UEFI/BIOS via grub-mkrescue"
-grub-mkrescue -V "$KALYX_ISO_LABEL" -o "$iso_out" "$iso_tree"
+grub-mkrescue -V "$KALYX_ISO_LABEL" -o "$iso_out" "$iso_tree" -iso-level 3
 info "ISO pronta: $iso_out"
